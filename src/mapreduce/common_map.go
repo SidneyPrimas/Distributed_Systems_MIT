@@ -2,6 +2,11 @@ package mapreduce
 
 import (
 	"hash/fnv"
+//	"fmt"
+	"io/ioutil"
+	"os"
+	"encoding/json"
+	"log"
 )
 
 // doMap does the job of a map worker: it reads one of the input files
@@ -40,6 +45,60 @@ func doMap(
 	//     err := enc.Encode(&kv)
 	//
 	// Remember to close the file after you have written all the values!
+
+	
+	//Step 1: Read the file in as a string
+
+	// Note: ioutil automatically closes the file. 
+	f, err := ioutil.ReadFile(inFile)
+	if err != nil {
+		log.Fatal("Error in doMap: ", err);
+	}
+	file_contents := string(f)
+
+	//Step 2: Use the mapF function to split the entire inFile into a KeyValue structure. 
+	// Use the map function to output key, value pairs
+	keyValOut := mapF(inFile, file_contents)
+	
+	
+	//Step 3:  Builds the output files and JSON encoders
+	fOutputPointers:= make([]*json.Encoder, nReduce)
+	for i:=0; i<nReduce; i++ {
+		// Outputs the actual name of the file in which the data should be stored in. 
+		fOut := reduceName(jobName, mapTaskNumber, nReduce)
+
+		//Creates the files
+		f, err := os.Create(fOut)
+		if err != nil {
+			log.Fatal("Error in doMap: ", err);
+		}
+		defer f.Close()
+
+		//Builds JSON encoder
+		enc := json.NewEncoder(f)
+
+		// Store pointer to the encoder
+		fOutputPointers[i] = enc
+		
+	}
+
+	//Step 4: Puts JSON structures into appropriate files. 
+	// For each key in keyValOut (key, value paairs):
+	// a) hash the key, 
+	// b) select the appropraite output file
+	// c) write the key/value to the output file (after encoding JSON)
+	for _, kv := range(keyValOut) {
+		cKey := kv.Key
+		cHash := ihash(cKey)
+
+
+		// Select appropriate JSON encoder. Write to file. 
+		enc := fOutputPointers[cHash % uint32(nReduce)]
+		enc.Encode(&kv)
+
+	}
+
+	
 }
 
 func ihash(s string) uint32 {
