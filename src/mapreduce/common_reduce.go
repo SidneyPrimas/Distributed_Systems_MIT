@@ -1,5 +1,13 @@
 package mapreduce
 
+import (
+	"fmt"
+//	"io/ioutil"
+	"os"
+	"encoding/json"
+	"log"
+)
+
 
 // doReduce does the job of a reduce worker: it reads the intermediate
 // key/value pairs (produced by the map phase) for this task, sorts the
@@ -33,5 +41,57 @@ func doReduce(
 	// }
 	// file.Close()
 
+
+	//Step 1: Identify input files for this reduce worker through the hash_mod_code
+	//Step 2: For each input file, a) decode the JSON data and b) sort the KeyValue pairs into a map. 
+
+	//Map that combines key/value paris from all files with the same hash_mod_code
+	keyMap := make(map[string][]string)
+	//Important: We get the file with the correct hash_mod_code for *each* map worker. 
+	//Iterate across all relevant input files
+	for i := 0; i<nMap; i++ {
+
+		//Identify and Open file
+		cFname := reduceName(jobName, i, reduceTaskNumber)
+		fmt.Println(cFname)
+		cFile, err := os.Open(cFname)
+		if err != nil {
+			log.Fatal("common_reduce.go error: ", err)
+		}
+
+		//Decode contents of file with JSON
+		dec := json.NewDecoder(cFile)
+		for {
+			var kv KeyValue
+			err = dec.Decode(&kv)
+			if err != nil {
+				break
+			}
+
+			//For each key, add the value to the 
+			keyMap[kv.Key] = append(keyMap[kv.Key], kv.Value)
+		}
+		cFile.Close()
+	}
+	
+
+
+	//Step 3: Creates the output file, and JSON object.
+	OutFileName := mergeName(jobName, reduceTaskNumber)
+	//Creates the files
+	f, err := os.Create(OutFileName)
+	if err != nil {
+		log.Fatal("Error in doReduce: ", err);
+	}
+	defer f.Close()
+	//Create JSON encodeer
+	enc := json.NewEncoder(f)
+
+	//Step 4: On each key within the map, implement the reduceF function, and write the resulting key/value to the output.
+	for k,v := range(keyMap) {
+		reduceOut := reduceF(k,v)
+		enc.Encode(KeyValue{k, reduceOut})
+		
+	}
 
 }

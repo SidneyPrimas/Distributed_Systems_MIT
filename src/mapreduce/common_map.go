@@ -65,7 +65,7 @@ func doMap(
 	fOutputPointers:= make([]*json.Encoder, nReduce)
 	for i:=0; i<nReduce; i++ {
 		// Outputs the actual name of the file in which the data should be stored in. 
-		fOut := reduceName(jobName, mapTaskNumber, nReduce)
+		fOut := reduceName(jobName, mapTaskNumber, i)
 
 		//Creates the files
 		f, err := os.Create(fOut)
@@ -90,7 +90,6 @@ func doMap(
 	for _, kv := range(keyValOut) {
 		cKey := kv.Key
 		cHash := ihash(cKey)
-
 
 		// Select appropriate JSON encoder. Write to file. 
 		enc := fOutputPointers[cHash % uint32(nReduce)]

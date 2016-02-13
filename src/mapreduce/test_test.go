@@ -27,8 +27,6 @@ func MapFunc(file string, value string) (res []KeyValue) {
 	debug("Map %v\n", value)
 	words := strings.Fields(value)
 	for _, w := range words {
-		//Not counting. We are just adding the struct into array.
-		//There might be many of the same words in the array. 
 		kv := KeyValue{w, ""}
 		res = append(res, kv)
 	}

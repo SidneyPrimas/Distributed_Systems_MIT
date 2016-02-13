@@ -1,1 +1,30 @@
-FAIL	mapreduce [build failed]
+=== RUN   TestSequentialSingle
+master: Starting Map/Reduce task test
+mrtmp.test-0-0
+Merge: read mrtmp.test-res-0
+master: Map/Reduce task completed
+--- PASS: TestSequentialSingle (1.16s)
+=== RUN   TestSequentialMany
+master: Starting Map/Reduce task test
+mrtmp.test-0-0
+mrtmp.test-1-0
+mrtmp.test-2-0
+mrtmp.test-3-0
+mrtmp.test-4-0
+mrtmp.test-0-1
+mrtmp.test-1-1
+mrtmp.test-2-1
+mrtmp.test-3-1
+mrtmp.test-4-1
+mrtmp.test-0-2
+mrtmp.test-1-2
+mrtmp.test-2-2
+mrtmp.test-3-2
+mrtmp.test-4-2
+Merge: read mrtmp.test-res-0
+Merge: read mrtmp.test-res-1
+Merge: read mrtmp.test-res-2
+master: Map/Reduce task completed
+--- PASS: TestSequentialMany (1.14s)
+PASS
+ok  	mapreduce	2.317s
