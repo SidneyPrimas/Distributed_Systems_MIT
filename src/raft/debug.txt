@@ -1,0 +1,233 @@
+Test: election after network failure ...
+Feb 23 19:43:55.568, Server2, Action: Election Time Interrupt 
+Feb 23 19:43:55.568, Server2, Action: Method sendRequestVote sent to Server0, Request => ({Term:1 CandidateId:2 LastLogIndex:0 LastLogTerm:-1}) 
+Feb 23 19:43:55.569, Server0, Action: Method RequestVote Prcoessed, Reply => (&{Term:0 VoteGranted:true}) 
+Feb 23 19:43:55.569, Server2, Action: Method sendRequestVote sent to Server1, Request => ({Term:1 CandidateId:2 LastLogIndex:0 LastLogTerm:-1}) 
+Feb 23 19:43:55.569, Server1, Action: Method RequestVote Prcoessed, Reply => (&{Term:0 VoteGranted:true}) 
+Feb 23 19:43:55.569, Server2, Action: Elected New Leader 
+Agree: 2, Disagree: 0 
+Feb 23 19:43:55.576, Server1, Action: Election Time Interrupt 
+Feb 23 19:43:55.576, Server2, Action: Send out heartbeat 
+Feb 23 19:43:55.576, Server1, Action: Method sendRequestVote sent to Server0, Request => ({Term:1 CandidateId:1 LastLogIndex:0 LastLogTerm:-1}) 
+Feb 23 19:43:55.576, Server0, Action: Method RequestVote Prcoessed, Reply => (&{Term:0 VoteGranted:false}) 
+Feb 23 19:43:55.576, Server0, Term1, Action: Method AppendEntries Prcoessed, Reply => (&{Term:1 Success:false}) 
+Feb 23 19:43:55.576, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:55.576, Server1, Action: Method sendRequestVote sent to Server2, Request => ({Term:1 CandidateId:1 LastLogIndex:0 LastLogTerm:-1}) 
+Feb 23 19:43:55.576, Server2, Action: Method RequestVote Prcoessed, Reply => (&{Term:1 VoteGranted:true}) 
+Feb 23 19:43:55.577, Server1, Term1, Action: Method AppendEntries Prcoessed, Reply => (&{Term:1 Success:false}) 
+Feb 23 19:43:55.577, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:55.626, Server2, Action: Send out heartbeat 
+Feb 23 19:43:55.626, Server0, Term1, Action: Method AppendEntries Prcoessed, Reply => (&{Term:1 Success:false}) 
+Feb 23 19:43:55.626, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:55.626, Server1, Term1, Action: Method AppendEntries Prcoessed, Reply => (&{Term:1 Success:false}) 
+Feb 23 19:43:55.626, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:55.675, Server2, Action: Send out heartbeat 
+Feb 23 19:43:55.676, Server0, Term1, Action: Method AppendEntries Prcoessed, Reply => (&{Term:1 Success:false}) 
+Feb 23 19:43:55.676, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:55.676, Server1, Term1, Action: Method AppendEntries Prcoessed, Reply => (&{Term:1 Success:false}) 
+Feb 23 19:43:55.676, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:55.726, Server2, Action: Send out heartbeat 
+Feb 23 19:43:55.726, Server0, Term1, Action: Method AppendEntries Prcoessed, Reply => (&{Term:1 Success:false}) 
+Feb 23 19:43:55.726, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:55.726, Server1, Term1, Action: Method AppendEntries Prcoessed, Reply => (&{Term:1 Success:false}) 
+Feb 23 19:43:55.726, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:55.775, Server2, Action: Send out heartbeat 
+Feb 23 19:43:55.776, Server0, Term1, Action: Method AppendEntries Prcoessed, Reply => (&{Term:1 Success:false}) 
+Feb 23 19:43:55.776, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:55.776, Server1, Term1, Action: Method AppendEntries Prcoessed, Reply => (&{Term:1 Success:false}) 
+Feb 23 19:43:55.776, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:55.826, Server2, Action: Send out heartbeat 
+Feb 23 19:43:55.826, Server0, Term1, Action: Method AppendEntries Prcoessed, Reply => (&{Term:1 Success:false}) 
+Feb 23 19:43:55.826, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:55.826, Server1, Term1, Action: Method AppendEntries Prcoessed, Reply => (&{Term:1 Success:false}) 
+Feb 23 19:43:55.826, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:55.876, Server2, Action: Send out heartbeat 
+Feb 23 19:43:55.926, Server2, Action: Send out heartbeat 
+Feb 23 19:43:55.976, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.026, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.026, Server1, Action: Election Time Interrupt 
+Feb 23 19:43:56.026, Server1, Action: Method sendRequestVote sent to Server0, Request => ({Term:2 CandidateId:1 LastLogIndex:0 LastLogTerm:-1}) 
+Feb 23 19:43:56.027, Server0, Action: Method RequestVote Prcoessed, Reply => (&{Term:1 VoteGranted:false}) 
+Feb 23 19:43:56.027, Server1, Action: Method sendRequestVote sent to Server2, Request => ({Term:2 CandidateId:1 LastLogIndex:0 LastLogTerm:-1}) 
+Feb 23 19:43:56.035, Server0, Action: Election Time Interrupt 
+Feb 23 19:43:56.035, Server0, Action: Method sendRequestVote sent to Server1, Request => ({Term:2 CandidateId:0 LastLogIndex:0 LastLogTerm:-1}) 
+Feb 23 19:43:56.035, Server1, Action: Method RequestVote Prcoessed, Reply => (&{Term:2 VoteGranted:false}) 
+Feb 23 19:43:56.035, Server0, Action: Method sendRequestVote sent to Server2, Request => ({Term:2 CandidateId:0 LastLogIndex:0 LastLogTerm:-1}) 
+Feb 23 19:43:56.076, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.126, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.175, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.225, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.275, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.297, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:56.316, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:56.325, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.375, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.425, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.475, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.525, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.575, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.626, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.676, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.726, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.776, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.826, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.875, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.925, Server2, Action: Send out heartbeat 
+Feb 23 19:43:56.942, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:56.975, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.026, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.075, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.125, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.137, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:57.177, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.226, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.275, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.325, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.363, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:57.375, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.426, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.427, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:57.475, Server2, Action: Send out heartbeat 
+We failed 
+Feb 23 19:43:57.525, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.535, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:57.575, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.598, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:57.610, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:57.625, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.627, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:57.675, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.701, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:57.725, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.759, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:57.775, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.825, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.868, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:57.876, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.925, Server2, Action: Send out heartbeat 
+Feb 23 19:43:57.963, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:57.976, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.025, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.075, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.114, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:58.126, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.175, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:58.175, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.194, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:58.225, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.275, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.276, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:58.326, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.376, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.424, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:58.425, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.451, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:58.475, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.479, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:58.525, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.575, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.578, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:58.625, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.634, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:58.675, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.684, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:58.689, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:58.725, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.748, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:58.775, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.808, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:58.826, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.875, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.925, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.976, Server2, Action: Send out heartbeat 
+Feb 23 19:43:58.977, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.025, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.031, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.038, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.067, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.076, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.125, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.130, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.175, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.206, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.225, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.226, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.275, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.288, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.292, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.320, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.325, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.375, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.425, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.475, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.485, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.525, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.542, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.559, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.575, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.626, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.627, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.675, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.706, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.726, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.732, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.775, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.795, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.818, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.825, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.838, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.875, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.895, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.914, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:43:59.925, Server2, Action: Send out heartbeat 
+Feb 23 19:43:59.975, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.025, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.025, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.034, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.048, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.051, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.075, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.085, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.125, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.175, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.181, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.197, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.225, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.275, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.282, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.313, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.325, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.331, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.370, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.375, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.425, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.475, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.498, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.498, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.525, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.548, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.559, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.576, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.601, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.625, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.637, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.655, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.675, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.689, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.709, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.725, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.748, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.757, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.775, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.795, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.797, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.822, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.825, Server2, Action: Send out heartbeat 
+Feb 23 19:44:00.857, Server2, Term1, Action: Method sendAppendEntries sent to Server0, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.865, Server2, Term1, Action: Method sendAppendEntries sent to Server1, Request => ({Term:1 LeaderId:1 PrevLogIndex:1 PrevLogTerm:1 Entries:[] LeaderCommit:1}) 
+Feb 23 19:44:00.875, Server2, Action: Send out heartbeat 
+--- FAIL: TestReElection (5.50s)
+	config.go:279: expected one leader, got 0
+FAIL
+exit status 1
+FAIL	raft	5.510s
