@@ -88,6 +88,11 @@ type Raft struct {
 	commitIndex int 
 	lastApplied int
 
+	// Voltatile internal Raft state (only for leaders)
+	// Note: nextIndex can only be ahead of leader index by 1 (which is when the logs are matching)
+	nextIndex []int
+	matchIndex []int
+
 	// Persistant internal Raft states (for all servers)
 	// currentTerm: Last term that server has seen. 
 	currentTerm int
@@ -95,9 +100,12 @@ type Raft struct {
 	votedFor int
 	log []RaftLog
 
-	// Additional variables for each raft instance. 
+	// Interrupt channel and timers
 	electionTimer *time.Timer
 	heartbeatTimer *time.Timer
+	serviceClientChan chan int
+
+	// Additional variables for each raft instance. 
 	voteCount int
 	majority int
 	myState RaftState
@@ -157,6 +165,117 @@ func (rf *Raft) manageRaftInterrupts() {
 
 	for {
 		select {
+		// Handles incoming service requests. Incoming requests must be handled in parallel
+		case logIndex := <-rf.serviceClientChan:
+
+			// Note: Only handle Client Requests when Leader. 
+			// Note: This check might be necessary if the serviceClientChan is backlogged, and we switch from a leader to a follower state
+			// without this serve failing. Not 100% necessary since we check for Leader again below.
+			if (rf.myState == Leader) {
+				fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Leader Begins log consistency routtine \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String())
+				fmt.Printf("TheLog: %q \n", rf.log[logIndex-1])
+
+				// Sidney: If server believes itself to be the leader and sends AppendEntries, turn-on/reset heartbeat timer. 
+				rf.heartbeatTimer.Reset(time.Millisecond * 50)
+
+
+				// Protocol: Make new log consistent by sending AppendEntry RPC to all servers. 
+				for thisServer := 0; thisServer < len(rf.peers); thisServer++ {
+					if (thisServer != rf.me) {
+
+						// Protocol: Create a go routine for each server that doesn't complete until the server is
+						// as up to date as to the logIndex of the log of the leader. 
+						//Note: Go routine will have access to updated rf raft structure. 
+						go func(server int) {	
+
+							// Note: While loop executes until server's log is at least as up to date as the logIndex.
+							// Note: Only can send these AppendEntries if server is the leader
+							for (logIndex >= rf.nextIndex[server]) && (rf.myState == Leader) {
+
+								// Setup outgoing arguments.
+								// Protocol: These arguments should be re-initialized for each RPC call since rf might update in the meantime.
+								// We want to replicate the leader log everywhere, so we can always send it when the follower is out of date. 
+								var reply AppendEntriesReply
+								start_index_sending := rf.nextIndex[server]
+								final_index_sending := len(rf.log)
+
+								args := AppendEntriesArgs{
+									Term: rf.currentTerm, 
+									LeaderId: rf.me, 
+									// Index of log entry immediately preceding the new one
+									PrevLogIndex: start_index_sending-1,  
+									// Fine to update commit index since if follower replies successfully, the follower log will be as up to date
+									// as leader, and thus can commit as much as the leader. 
+									LeaderCommit: rf.commitIndex}
+
+								// Handle situation where only single entry in log
+								if (args.PrevLogIndex == 0) {
+									args.PrevLogTerm = -1
+								} else {
+									args.PrevLogTerm = rf.log[args.PrevLogIndex-1].Term
+								}
+
+
+								// Protocol: The leader should send all logs from requested index, and upwards. 
+								args.Entries = rf.log[start_index_sending-1:final_index_sending]
+								msg_received := rf.sendAppendEntries(server, args, &reply)
+								
+								// Handle the reply. 
+								// Note: If the msg isn't received by server, send another message. 
+								if (msg_received) {
+
+									if (reply.Success) {
+										// The follower server is now up to date (both the logs and the commit)
+										// Protocol: After successful AppendEntries, increase nextIndex for this server to one above the last index
+										// sent by the last AppendEntries RPC request. 
+										rf.nextIndex[server] =  final_index_sending + 1
+										rf.matchIndex[server] = final_index_sending
+									} else if (!reply.Success) {
+										// Protocol: If fail because of log inconsistency, decrement next index by 1. 
+										rf.nextIndex[server] = args.PrevLogIndex
+									}
+
+								}
+							}
+						}(thisServer)
+					}
+				}
+			}
+
+		// Sends hearbeats. 
+		// A server only sends hearbeats if they believe to be leader. 
+		case currentTime := <- rf.heartbeatTimer.C: 
+
+			//Error Checking
+			if (rf.myState != Leader) {
+				fmt.Printf("Error: Server is trying to send out a hearbeat when it's not the leader. Should not be possible.\n")
+			}
+			fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Send out heartbeat \n", currentTime.Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String())
+
+			// Sidney: If server believes itself to be the leader, turn on heartbeat timer. 
+			rf.heartbeatTimer.Reset(time.Millisecond * 50)
+
+
+			// Protocol: If server believes to be the leader, sends heartbeats to all peer servers. 
+			// Setup outgoing arguments
+			args := AppendEntriesArgs{
+				Term: rf.currentTerm, 
+				LeaderId: 1, 
+				PrevLogTerm: 1, 
+				PrevLogIndex: 1, 
+				LeaderCommit: 1}
+
+			for i := 0; i < len(rf.peers); i++ {
+				if (i != rf.me) {
+					var reply AppendEntriesReply
+
+					go func(server int, args AppendEntriesArgs, reply AppendEntriesReply) {	
+						rf.sendAppendEntries(server, args, &reply)
+					}(i, args, reply)
+
+				}
+			}
+
 		// Handles election timeout interrupt: Starts an election
 		case currentTime := <- rf.electionTimer.C: 
 
@@ -209,40 +328,6 @@ func (rf *Raft) manageRaftInterrupts() {
 				}
 				
 			}
-
-		 // Sends hearbeats. 
-		 // A server only sends hearbeats if they believe to be leader. 
-		case currentTime := <- rf.heartbeatTimer.C: 
-
-			//Error Checking
-			if (rf.myState != Leader) {
-				fmt.Printf("Error: Server is trying to send out a hearbeat when it's not the leader. Should not be possible.\n")
-			}
-			fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Send out heartbeat \n", currentTime.Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String())
-
-			// Sidney: If server believes itself to be the leader, turn on heartbeat timer. 
-			rf.heartbeatTimer.Reset(time.Millisecond * 50)
-
-
-			// Protocol: If server believes to be the leader, sends heartbeats to all peer servers. 
-			// Setup outgoing arguments
-			args := AppendEntriesArgs{
-				Term: rf.currentTerm, 
-				LeaderId: 1, 
-				PrevLogTerm: 1, 
-				PrevLogIndex: 1, 
-				LeaderCommit: 1}
-
-			for i := 0; i < len(rf.peers); i++ {
-				if (i != rf.me) {
-					var reply AppendEntriesReply
-
-					go func(server int, args AppendEntriesArgs, reply AppendEntriesReply) {	
-						rf.sendAppendEntries(server, args, &reply)
-					}(i, args, reply)
-
-				}
-			}
 			
 
 		default: 
@@ -270,10 +355,27 @@ func (rf *Raft) tallyVotes(voteResult bool) {
 	 		rf.myState = Leader
 	 		rf.electionTimer.Stop()
 	 		rf.heartbeatTimer.Reset(time.Millisecond * 50)
+	 		// Initialize leader specific variables. 
+	 		rf.nextIndex = make([]int, len(rf.peers))
+	 		rf.matchIndex =  make([]int, len(rf.peers))
+	 		for i := range(rf.nextIndex) {
+
+	 			rf.nextIndex[i] = len(rf.log) + 1
+	 			rf.matchIndex[i] = 0
+
+	 		}
 	 	}
  	}
 }
-			
+
+//
+func (rf *Raft) processAppendEntryRequest (args AppendEntriesArgs)	bool {
+	if (args.PrevLogIndex == 1) {
+		return true
+	} else {
+		return true
+	}
+}
 
 
 //
@@ -344,13 +446,17 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 		}
 
 		// Determine if this server can vote for candidate: Vote when candidate has larger log term
+		// Protocol: Reset the election timer when granting a vote. 
 		if (allowedToVote) && (args.LastLogTerm > thisLastLogTerm) {
 			reply.VoteGranted = true
 			rf.votedFor = args.CandidateId
+			rf.electionTimer.Reset(getElectionTimeout())
 		// Determine if this server can vote for canddiate: When candidates's log term is equal, look at index
+		// Protocol: Reset the election timer when granting a vote. 
 		} else if (allowedToVote) && (args.LastLogTerm == thisLastLogTerm) && (args.LastLogIndex >= thisLastLogIndex) {
 			reply.VoteGranted = true
 			rf.votedFor = args.CandidateId
+			rf.electionTimer.Reset(getElectionTimeout())
 		// If the above statements are not met, don't vote for this candidate.  
 		} else {
 			reply.VoteGranted = false
@@ -429,43 +535,52 @@ type AppendEntriesReply struct {
 //
 func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply) {
 
-	// Protocol: As always, if this server's term is lagging, update the term. 
-	// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state.
-	// Protocol: In this case, recognize the leader by setting reseting the election timeout
-	if (args.Term > rf.currentTerm) {
-		rf.currentTerm = args.Term
-		rf.votedFor = -1
+	// If the request is from a stale leader (an older term), reject the RPC immediately. 
+	if(args.Term < rf.currentTerm) {
+		reply.Success = false
+	// Handles the case where this server is in same or lower term. 
+	} else {
+
 		// Protocol: Recognize the leader in AppendEntries when sender is in larger or equal term
 		rf.electionTimer.Reset(getElectionTimeout())
 
+		// UPDATE THE TERM AND STATE OF THE SERVER
 
-		if (rf.myState == Leader)  {
-			//Transition from Leader to Follower: reset electionTimer
-			rf.myState = Follower
-			rf.electionTimer.Reset(getElectionTimeout())
-			rf.heartbeatTimer.Stop()
-		} else if (rf.myState == Candidate) {
-			rf.myState = Follower
-			rf.electionTimer.Reset(getElectionTimeout())
+		// Protocol: As always, if this server's term is lagging, update the term. 
+		// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state.
+		// Protocol: In this case, recognize the leader by setting reseting the election timeout
+		if (args.Term > rf.currentTerm) {
+			rf.currentTerm = args.Term
+			rf.votedFor = -1
+
+
+			if (rf.myState == Leader)  {
+				//Transition from Leader to Follower: reset electionTimer
+				rf.myState = Follower
+				rf.electionTimer.Reset(getElectionTimeout())
+				rf.heartbeatTimer.Stop()
+			} else if (rf.myState == Candidate) {
+				rf.myState = Follower
+				rf.electionTimer.Reset(getElectionTimeout())
+			}
+
+
+		// If they are in the same term, just recognize the leader. 
+		} else if (args.Term == rf.currentTerm) {
+
+			// Important Protocol: If this server is a Candidate, and it recieves append entries, then
+			// this server knows that a leader has been elected, and it should become a follower. 
+			if (rf.myState == Candidate) {
+				rf.myState = Follower
+				rf.electionTimer.Reset(getElectionTimeout())
+			} else if (rf.myState == Leader) {
+				fmt.Printf("Error: Two leaders have been selected in the same term. \n")
+			}
 		}
 
-	// If they are in the same term, just recognize the leader. 
-	} else if (args.Term == rf.currentTerm) {
-		// Protocol: Recognize the leader in AppendEntries when sender is in larger or equal term
-		rf.electionTimer.Reset(getElectionTimeout())
+		// ONCE THE TERM/STATE ARE UPDATED, HANDLE THE APPEND ENTRIES REQUEST
+		reply.Success = rf.processAppendEntryRequest(args)
 
-		// Important Protocol: If this server is a Candidate, and it recieves append entries, then
-		// this server knows that a leader has been elected, and it should become a follower. 
-		if (rf.myState == Candidate) {
-			rf.myState = Follower
-			rf.electionTimer.Reset(getElectionTimeout())
-		} else if (rf.myState == Leader) {
-			fmt.Printf("Error: Two leaders have been selected in the same term. \n")
-		}
-		
-	// If the request is from a stale leader (an older term), reject the RPC. 
-	} else if(args.Term < rf.currentTerm) {
-		// For now, do nothing. 
 	}
 
 	reply.Term = rf.currentTerm
@@ -520,9 +635,39 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 // the leader.
 //
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
-	index := -1
-	term := -1
-	isLeader := true
+
+	// Initialize variables
+	var index int
+	var term int
+	var isLeader bool
+	
+	// Not Leader: Reject the client request. 
+	if (rf.myState != Leader) {
+		index = -1
+		term = -1
+		isLeader = false
+	// If Leader: Process the client request. 
+	// Protocol: Append request to log as new entry. 
+	} else {
+
+		newLog := RaftLog{
+			Term: rf.currentTerm, 
+			Command: command}
+
+		rf.log = append(rf.log, newLog)
+
+		index = len(rf.log)
+		term = rf.currentTerm
+		isLeader = true
+
+		// Protocol: Initiate the replication process (asynchronous)
+		// Note: We use a buffered channel to try to 1) keep the client requests ordered and 2) ensure that
+		// the Start() function can return immediately (not causing time-out issues)
+		// Note: Pass the index of the log entry (allowed since while this server is leader, it will never change it's own log entries)
+		rf.serviceClientChan <- index
+
+
+	}
 
 
 	return index, term, isLeader
@@ -566,13 +711,17 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	// Protocol: Initialize all new servers (initializes for the first time or after crash) in a follower state. 
 	rf.myState = Follower
 
-	//TIMERS//
+	//TIMERS and CHANNELS//
 	//Create election timeout timer
 	//TODO: Do I need to close this timer?
 	rf.electionTimer = time.NewTimer(getElectionTimeout())
 	//Create heartbeat timer. Make sure it's stopped. 
 	rf.heartbeatTimer = time.NewTimer(time.Millisecond * 50)
 	rf.heartbeatTimer.Stop()
+	//Create channel to synchronize log entries by handling incoming client requests. 
+	//Channel is buffered so that we can handle/order 256 client requests simultaneously. 
+	//TODO: Implement technique that doesn't limit how many client requests we can handle simultaneously. 
+	rf.serviceClientChan = make(chan int, 256)
 
 
 	// INITIALIZE PERSISTANT STATES //
