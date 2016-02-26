@@ -279,56 +279,55 @@ func (rf *Raft) manageRaftInterrupts() {
 		// Handles election timeout interrupt: Starts an election
 		case currentTime := <- rf.electionTimer.C: 
 
-			// Error Checking
-			if (rf.myState == Leader) {
-				fmt.Printf("Error: Sending vote request as a leader. \n")
-			}
-
-			//TODO: Figure out when to change to candidate state
-			// Protocol: Since the election timeout elapsed, start an election. 
-			// Protocol: To indicate that this server started an election, switch to candidate state, and reset the votes. 
-			rf.myState = Candidate
-			rf.voteCount = 0
-			// Protocol: For each new election, increment the servers current term. Since it's a new term, reset votedFor
-			rf.currentTerm += 1
-			rf.votedFor = -1
-
-			fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Election Time Interrupt \n", currentTime.Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String())
-
-			// Protocol: Vote for yourself. 
-			rf.tallyVotes(true)
-
-			// Protocol: Reset election timer (in case we have split brain issues.)
-			rf.electionTimer.Reset(getElectionTimeout())
-
-			// Protocol: Send a RequestVote RPC to all peers. 
-			//Setup outgoing arguments
-			args := RequestVoteArgs{
-				Term: rf.currentTerm,
-				CandidateId: rf.me,
-				LastLogIndex: len(rf.log)}
-
-			// If tree to ensure correct first-time LastLogTerm initialization 
-			if len(rf.log) == 0 {
-				args.LastLogTerm = -1
-			} else {
-				args.LastLogTerm = rf.log[len(rf.log)-1].Term
-			}
-
-			for i := 0; i < len(rf.peers); i++ {
-				//Send a RequestVote RPC to all Raft servers (accept our own)
-				if (i != rf.me) {
-					var reply RequestVoteReply
-					// Important: Need to use anonymous function implementation so that: 
-					// 1) We can run multiple requests in parallel
-					// 2) We can capture the specific reply of each request seperately
-					go func(server int, args RequestVoteArgs, reply RequestVoteReply) {
-						rf.sendRequestVote(server, args, &reply)
-					}(i, args, reply)
-				}
-				
-			}
+			// Note: I need to check that server is not the leader in case of the following order of operations => electionTimer timeout
+			// to change to Leader to handle this election timerINterrupt
+			if (rf.myState != Leader) {
 			
+
+				// Protocol: Since the election timeout elapsed, start an election. 
+				// Protocol: To indicate that this server started an election, switch to candidate state, and reset the votes. 
+				rf.myState = Candidate
+				rf.voteCount = 0
+				// Protocol: For each new election, increment the servers current term. Since it's a new term, reset votedFor
+				rf.currentTerm += 1
+				rf.votedFor = -1
+
+				fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Election Time Interrupt \n", currentTime.Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String())
+
+				// Protocol: Vote for yourself. 
+				rf.tallyVotes(true)
+
+				// Protocol: Reset election timer (in case we have split brain issues.)
+				rf.electionTimer.Reset(getElectionTimeout())
+
+				// Protocol: Send a RequestVote RPC to all peers. 
+				//Setup outgoing arguments
+				args := RequestVoteArgs{
+					Term: rf.currentTerm,
+					CandidateId: rf.me,
+					LastLogIndex: len(rf.log)}
+
+				// If tree to ensure correct first-time LastLogTerm initialization 
+				if len(rf.log) == 0 {
+					args.LastLogTerm = -1
+				} else {
+					args.LastLogTerm = rf.log[len(rf.log)-1].Term
+				}
+
+				for i := 0; i < len(rf.peers); i++ {
+					//Send a RequestVote RPC to all Raft servers (accept our own)
+					if (i != rf.me) {
+						var reply RequestVoteReply
+						// Important: Need to use anonymous function implementation so that: 
+						// 1) We can run multiple requests in parallel
+						// 2) We can capture the specific reply of each request seperately
+						go func(server int, args RequestVoteArgs, reply RequestVoteReply) {
+							rf.sendRequestVote(server, args, &reply)
+						}(i, args, reply)
+					}
+					
+				}
+			}
 
 		default: 
 

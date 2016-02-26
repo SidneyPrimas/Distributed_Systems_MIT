@@ -9,7 +9,7 @@ ToDo Notes:
 + Possible To Do: Set a shorter RPC timeout
 + To Do: Update heart beat AppendEntries Parameters. 
 + To Do: Drain the Service channel when I switch out of leader. 
-+ To Do: Move the resetting of heartbeat timer to beginning of sendAppendEnries RPC function. Anytime I send, I should reset that timer. 
++ To Do: Move the resetting of heartbeat timer to beginning of sendAppendEnries RPC function. Anytime I send, I should reset that timer => Actually, I dont' think this is right since you might be only talking to a single server (figurign out how to update), but still need to send heartbeats to other servers. 
 
 Possible Option: 
 + Handle all client interrupts and timer interrupts within a selection function. 
