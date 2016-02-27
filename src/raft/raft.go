@@ -22,6 +22,7 @@ import "labrpc"
 import "time"
 import "math/rand"
 import "fmt"
+import "math"
 
 // import "bytes"
 // import "encoding/gob"
@@ -173,7 +174,7 @@ func (rf *Raft) manageRaftInterrupts() {
 			// without this serve failing. Not 100% necessary since we check for Leader again below.
 			if (rf.myState == Leader) {
 				fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Leader Begins log consistency routtine \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String())
-				fmt.Printf("TheLog: %q \n", rf.log[logIndex-1])
+				fmt.Printf("TheLog: %v \n", rf.log)
 
 				// Sidney: If server believes itself to be the leader and sends AppendEntries, turn-on/reset heartbeat timer. 
 				rf.heartbeatTimer.Reset(time.Millisecond * 50)
@@ -182,60 +183,18 @@ func (rf *Raft) manageRaftInterrupts() {
 				// Protocol: Make new log consistent by sending AppendEntry RPC to all servers. 
 				for thisServer := 0; thisServer < len(rf.peers); thisServer++ {
 					if (thisServer != rf.me) {
-
-						// Protocol: Create a go routine for each server that doesn't complete until the server is
-						// as up to date as to the logIndex of the log of the leader. 
-						//Note: Go routine will have access to updated rf raft structure. 
-						go func(server int) {	
-
+						// Note: Implement Go routine to call all AppendEntries requests seperately. 
+						go func(server int) {
 							// Note: While loop executes until server's log is at least as up to date as the logIndex.
 							// Note: Only can send these AppendEntries if server is the leader
 							for (logIndex >= rf.nextIndex[server]) && (rf.myState == Leader) {
 
-								// Setup outgoing arguments.
-								// Protocol: These arguments should be re-initialized for each RPC call since rf might update in the meantime.
-								// We want to replicate the leader log everywhere, so we can always send it when the follower is out of date. 
-								var reply AppendEntriesReply
-								start_index_sending := rf.nextIndex[server]
-								final_index_sending := len(rf.log)
 
-								args := AppendEntriesArgs{
-									Term: rf.currentTerm, 
-									LeaderId: rf.me, 
-									// Index of log entry immediately preceding the new one
-									PrevLogIndex: start_index_sending-1,  
-									// Fine to update commit index since if follower replies successfully, the follower log will be as up to date
-									// as leader, and thus can commit as much as the leader. 
-									LeaderCommit: rf.commitIndex}
+								// Protocol: Create a go routine for a server that doesn't complete until that server is
+								//  up-to-date as to the logIndex of the log of the leader. 
+								// Note: Go routine will have access to updated rf raft structure. 
+								rf.updateFollowerLogs(server)
 
-								// Handle situation where only single entry in log
-								if (args.PrevLogIndex == 0) {
-									args.PrevLogTerm = -1
-								} else {
-									args.PrevLogTerm = rf.log[args.PrevLogIndex-1].Term
-								}
-
-
-								// Protocol: The leader should send all logs from requested index, and upwards. 
-								args.Entries = rf.log[start_index_sending-1:final_index_sending]
-								msg_received := rf.sendAppendEntries(server, args, &reply)
-								
-								// Handle the reply. 
-								// Note: If the msg isn't received by server, send another message. 
-								if (msg_received) {
-
-									if (reply.Success) {
-										// The follower server is now up to date (both the logs and the commit)
-										// Protocol: After successful AppendEntries, increase nextIndex for this server to one above the last index
-										// sent by the last AppendEntries RPC request. 
-										rf.nextIndex[server] =  final_index_sending + 1
-										rf.matchIndex[server] = final_index_sending
-									} else if (!reply.Success) {
-										// Protocol: If fail because of log inconsistency, decrement next index by 1. 
-										rf.nextIndex[server] = args.PrevLogIndex
-									}
-
-								}
 							}
 						}(thisServer)
 					}
@@ -251,30 +210,22 @@ func (rf *Raft) manageRaftInterrupts() {
 				fmt.Printf("Error: Server is trying to send out a hearbeat when it's not the leader. Should not be possible.\n")
 			}
 			fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Send out heartbeat \n", currentTime.Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String())
+			fmt.Printf("TheLog: %v \n", rf.log)
 
 			// Sidney: If server believes itself to be the leader, turn on heartbeat timer. 
 			rf.heartbeatTimer.Reset(time.Millisecond * 50)
 
-
 			// Protocol: If server believes to be the leader, sends heartbeats to all peer servers. 
-			// Setup outgoing arguments
-			args := AppendEntriesArgs{
-				Term: rf.currentTerm, 
-				LeaderId: 1, 
-				PrevLogTerm: 1, 
-				PrevLogIndex: 1, 
-				LeaderCommit: 1}
+			// Note: The heartbeat will try to update the follower. Heartbeat sends a single update, and does not iterate until follower is updated. 
+			// The goal is just to assert control as leader. 
+			for thisServer := 0; thisServer < len(rf.peers); thisServer++ {
+				if (thisServer != rf.me) {
 
-			for i := 0; i < len(rf.peers); i++ {
-				if (i != rf.me) {
-					var reply AppendEntriesReply
-
-					go func(server int, args AppendEntriesArgs, reply AppendEntriesReply) {	
-						rf.sendAppendEntries(server, args, &reply)
-					}(i, args, reply)
-
+					// Note: Go routine will have access to updated rf raft structure. 
+					go rf.updateFollowerLogs(thisServer)
 				}
 			}
+
 
 		// Handles election timeout interrupt: Starts an election
 		case currentTime := <- rf.electionTimer.C: 
@@ -323,6 +274,9 @@ func (rf *Raft) manageRaftInterrupts() {
 						// 2) We can capture the specific reply of each request seperately
 						go func(server int, args RequestVoteArgs, reply RequestVoteReply) {
 							rf.sendRequestVote(server, args, &reply)
+
+							// Document if the vote was or was not granted.
+							rf.tallyVotes(reply.VoteGranted)
 						}(i, args, reply)
 					}
 					
@@ -367,15 +321,186 @@ func (rf *Raft) tallyVotes(voteResult bool) {
  	}
 }
 
-//
-func (rf *Raft) processAppendEntryRequest (args AppendEntriesArgs)	bool {
-	if (args.PrevLogIndex == 1) {
-		return true
+// Logic to update the log of the follower
+func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs) (success bool) {
+	fmt.Printf("%s, Server%d, Term%d, State: %s, Action: processAppendEntryRequest, Log => %v \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String(),  rf.log)
+	fmt.Printf("Entries in AppendEntries RPC in processAppendEntryRequest: %v \n", args.Entries)
+
+	// Handle case where we reached the end of the log.
+	var myPrevLogTerm int
+	if (args.PrevLogIndex == 0) {
+		myPrevLogTerm = -1
 	} else {
-		return true
+		myPrevLogTerm = rf.log[args.PrevLogIndex-1].Term
+	}
+
+
+	// Protocol: Determine if the previous entry has the same term an index
+	// Protocol: If it doesn't, return false. 
+	if (myPrevLogTerm != args.PrevLogTerm) {
+		success = false
+	// Protocol: If the previous log entry has the same term/index, update this server's log
+	} else {
+
+		// Protocol: Update this server with the correct logs and commitIndex. 
+		success = true
+
+		// Protocol: If index/term are different in sent log (rf.Entries), remove that index and all other 
+		// log entries after that index from follower.
+		// Note: Need to do this since these Append Entries RPCs might come out of order, 
+		// and we don't want to undo anything that's commited. 
+		// entriesIDifferent: Array index at which entry should be copied over to rf.log
+		var entriesIDifferent int = 0
+		for i,v := range(args.Entries) {
+			// Handle case where the next rf.log doesn't exist. 
+			// Note: if (max index of rf.log) is <= (the index we plan to append), then the index doesn't exist in rf.log. 
+			if (len(rf.log)-1 < args.PrevLogIndex+i) {
+
+				entriesIDifferent = i
+
+				break
+			// Handle the case where the next rf.log exists but doesn't math 
+			} else if(v.Term != rf.log[args.PrevLogIndex+i].Term) {
+				entriesIDifferent = i
+				logIDifferent := args.PrevLogIndex+i
+				rf.log = rf.log[:logIDifferent+1]
+				break
+			}
+		}
+
+
+		// Protocol: Append any new entries not already in the log. 
+		fmt.Printf("Before Update of rf.log processAppendEntryRequest: %v \n", rf.log)
+		rf.log = append(rf.log, args.Entries[entriesIDifferent:]...)
+		fmt.Printf("After Update of rf.log processAppendEntryRequest: %v \n", rf.log)
+
+		// Protocol: Update on the entries that have been comitted. At this point, rf.log should be up to date. 
+		if (args.LeaderCommit > rf.commitIndex) {
+			// Protocol: Use the minimum between leaderCommit and current Log's max index since 
+			// there is no way to commit entires that are not in log. 
+			rf.commitIndex = int(math.Min(float64(args.LeaderCommit), float64(len(rf.log))))
+			if (rf.commitIndex != args.LeaderCommit) {
+				fmt.Printf("Error: Claimed to have updated the full log of a follower, but didn't \n")
+			}
+		}
+
+	}
+	return
+}
+
+// Protocol: Used to send AppendEntries request to each server until the followr server updates. 
+// Protocol: Also used for hearbeats
+func (rf *Raft) updateFollowerLogs(server int) {
+	fmt.Printf("%s, Server%d, Term%d, State: %s, Action: updateFollowerLogs \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String())
+	fmt.Printf("TheLog in updateFollowerLogs: %v \n", rf.log)
+
+	// Setup outgoing arguments.
+	// Protocol: These arguments should be re-initialized for each RPC call since rf might update in the meantime.
+	// We want to replicate the leader log everywhere, so we can always send it when the follower is out of date. 
+	var reply AppendEntriesReply
+	start_index_sending := rf.nextIndex[server]
+	final_index_sending := len(rf.log)
+
+	args := AppendEntriesArgs{
+		Term: rf.currentTerm, 
+		LeaderId: rf.me, 
+		// Index of log entry immediately preceding the new one
+		PrevLogIndex: start_index_sending-1,  
+		// Fine to update commit index since if follower replies successfully, the follower log will be as up to date
+		// as leader, and thus can commit as much as the leader. 
+		LeaderCommit: rf.commitIndex}
+
+	// Handle situation where only single entry in log
+	if (args.PrevLogIndex == 0) {
+		args.PrevLogTerm = -1
+	} else {
+		args.PrevLogTerm = rf.log[args.PrevLogIndex-1].Term
+	}
+
+
+	// Protocol: The leader should send all logs from requested index, and upwards. 
+	args.Entries = rf.log[start_index_sending-1:final_index_sending]
+	msg_received := rf.sendAppendEntries(server, args, &reply)
+	
+	// Handle the reply. 
+	// Note: If the msg isn't received by server, send another message. 
+	if (msg_received) {
+
+		if (reply.Success) {
+			// The follower server is now up to date (both the logs and the commit)
+			// Protocol: After successful AppendEntries, increase nextIndex for this server to one above the last index
+			// sent by the last AppendEntries RPC request. 
+			rf.nextIndex[server] =  final_index_sending + 1
+			rf.matchIndex[server] = final_index_sending
+
+			rf.checkCommitStatus()
+
+		} else if (!reply.Success) {
+			// Protocol: If fail because of log inconsistency, decrement next index by 1. 
+			rf.nextIndex[server] = args.PrevLogIndex
+		}
+
 	}
 }
 
+// Go routine that runs in background committing entries when possible. 
+// For optimal efficiency, this should be blocked 
+func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
+
+	for  {
+		for(rf.commitIndex > rf.lastApplied) {
+
+			rf.lastApplied = rf.lastApplied +1
+
+			msgOut := ApplyMsg{}
+			msgOut.Index = rf.lastApplied
+			msgOut.Command = rf.log[rf.lastApplied-1].Command
+			applyCh <- msgOut
+			fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, log => %v \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String(), rf.commitIndex, rf.log)
+		}
+
+		time.Sleep(time.Millisecond * 100)
+	}
+}
+
+// Everytime a follower returns successfully from a Append Entries Routine, check if leader can commit additional log entries. 
+func (rf *Raft) checkCommitStatus() {
+
+	// Protocol: Only the leader can decide when it's safe to apply a command to the state machine. 
+	if (rf.myState == Leader) {
+
+		var tempCommitIndex int = 0
+
+		//Protocol to determine new commitIndex
+
+		// Protocol: Ensure that the N > commitIndex
+		// Iterate across each item in log above commitIndex
+		for i_log := rf.commitIndex; i_log < len(rf.log); i_log++ {
+			var count int = 0
+			// Protocol: Ensure that log[N].term == currentTerm
+			if(rf.log[i_log].Term == rf.currentTerm){
+				// Protocol: Majority of matchIndex[] >= N (i_log+1)
+				for _, v_match := range(rf.matchIndex){
+					if (v_match >= i_log+1) {
+						count++
+					}
+				}
+				// If current commitIndex meets majority standard, then update the tempCommitIndex
+				if (count >= rf.majority) {
+					tempCommitIndex = i_log + 1
+				}
+			}
+
+		}
+
+		// Update rf.commitIndex if it has changed from 0. 
+		if (tempCommitIndex != 0) {
+			rf.commitIndex = tempCommitIndex
+			fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Update commitIndex to %d, log => %v \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String(), rf.commitIndex, rf.log)
+		}
+	}
+
+}
 
 //
 // example RequestVote RPC arguments structure.
@@ -501,8 +626,6 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 		}
 	}
 
-	// Document if the vote was or was not granted.
-	rf.tallyVotes(reply.VoteGranted)
 	return ok
 }
 
@@ -653,6 +776,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			Term: rf.currentTerm, 
 			Command: command}
 
+		fmt.Printf("%s, Server%d, Term%d, State: %s, Action: LEADER RECEIVED NEW START(), New Log Entry => (%v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String(), newLog)
+
 		rf.log = append(rf.log, newLog)
 
 		index = len(rf.log)
@@ -735,6 +860,8 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 
 	go rf.manageRaftInterrupts()
+
+	go rf.commitLogEntries(applyCh)
 
 
 	return rf

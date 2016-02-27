@@ -8,8 +8,11 @@ ToDo Notes:
 + Possible To Do: Currently have limited amount of client requests I can process simultaneously.
 + Possible To Do: Set a shorter RPC timeout
 + To Do: Update heart beat AppendEntries Parameters. 
-+ To Do: Drain the Service channel when I switch out of leader. 
++ To Do: Drain the Service channel when I switch out of leader. (do I need to do this?)
 + To Do: Move the resetting of heartbeat timer to beginning of sendAppendEnries RPC function. Anytime I send, I should reset that timer => Actually, I dont' think this is right since you might be only talking to a single server (figurign out how to update), but still need to send heartbeats to other servers. 
++ To Do: Anything that is just specific to one state should be protected by an if statement for that state. 
++ To Do: Error check to make sure we never overwrite a committed entry in follower. 
+
 
 Possible Option: 
 + Handle all client interrupts and timer interrupts within a selection function. 
