@@ -106,8 +106,6 @@ type Raft struct {
 	heartbeatTimer *time.Timer
 	serviceClientChan chan int
 
-	// Additional variables for each raft instance. 
-	voteCount int
 	majority int
 	myState RaftState
 
@@ -238,46 +236,57 @@ func (rf *Raft) manageRaftInterrupts() {
 				// Protocol: Since the election timeout elapsed, start an election. 
 				// Protocol: To indicate that this server started an election, switch to candidate state, and reset the votes. 
 				rf.myState = Candidate
-				rf.voteCount = 0
-				// Protocol: For each new election, increment the servers current term. Since it's a new term, reset votedFor
+				// Protocol: For each new election, increment the servers current term.
 				rf.currentTerm += 1
-				rf.votedFor = -1
+				// Vote for yourself
+				rf.votedFor = rf.me
+				var voteCount_mu = &sync.Mutex{}
+				var voteCount int = 1
 
 				fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Election Time Interrupt \n", currentTime.Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String())
 
-				// Protocol: Vote for yourself. 
-				rf.tallyVotes(true)
 
 				// Protocol: Reset election timer (in case we have split brain issues.)
 				rf.electionTimer.Reset(getElectionTimeout())
 
 				// Protocol: Send a RequestVote RPC to all peers. 
-				//Setup outgoing arguments
-				args := RequestVoteArgs{
-					Term: rf.currentTerm,
-					CandidateId: rf.me,
-					LastLogIndex: len(rf.log)}
-
-				// If tree to ensure correct first-time LastLogTerm initialization 
-				if len(rf.log) == 0 {
-					args.LastLogTerm = -1
-				} else {
-					args.LastLogTerm = rf.log[len(rf.log)-1].Term
-				}
-
-				for i := 0; i < len(rf.peers); i++ {
+				for thisServer := 0; thisServer < len(rf.peers); thisServer++ {
 					//Send a RequestVote RPC to all Raft servers (accept our own)
-					if (i != rf.me) {
-						var reply RequestVoteReply
-						// Important: Need to use anonymous function implementation so that: 
-						// 1) We can run multiple requests in parallel
-						// 2) We can capture the specific reply of each request seperately
-						go func(server int, args RequestVoteArgs, reply RequestVoteReply) {
-							rf.sendRequestVote(server, args, &reply)
+					if (thisServer != rf.me) {
+						// Important: Need to use anonymous function implementation so that: We can run multiple requests in parallel
+						go func(server int) {
 
 							// Document if the vote was or was not granted.
-							rf.tallyVotes(reply.VoteGranted)
-						}(i, args, reply)
+							voteGranted := rf.getVotes(server)
+
+							var voteCount_temp int
+							if (voteGranted) {
+								voteCount_mu.Lock()
+								voteCount = voteCount +1
+								voteCount_temp = voteCount
+								voteCount_mu.Unlock()
+
+							}
+
+							// Decide election
+						 	if (voteCount_temp >= rf.majority) {
+						 		fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Elected New Leader \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String())
+						 		// Protocol: Transition to leader state. 
+						 		rf.myState = Leader
+						 		rf.electionTimer.Stop()
+						 		rf.heartbeatTimer.Reset(time.Millisecond * 50)
+
+						 		// Initialize leader specific variables. 
+						 		rf.nextIndex = make([]int, len(rf.peers))
+						 		rf.matchIndex =  make([]int, len(rf.peers))
+						 		for i := range(rf.nextIndex) {
+
+						 			rf.nextIndex[i] = len(rf.log) + 1
+						 			rf.matchIndex[i] = 0
+
+						 		}
+						 	}
+						}(thisServer)
 					}
 					
 				}
@@ -291,34 +300,42 @@ func (rf *Raft) manageRaftInterrupts() {
 }
 
 // Collects submitted votes, and determine election result. 
-func (rf *Raft) tallyVotes(voteResult bool) {
+func (rf *Raft) getVotes(server int) bool  {
 
-	// A server only accepts votes if they believe they are a candidate. Important because might accumulate votes as
-	// follower through delayed RPCs.
-	if (rf.myState == Candidate) {
-		//Count votes
-		if (voteResult) {
-	 		rf.voteCount += 1
-	 	}
+	//Return Variable: defaults to false
+	var myvoteGranted bool = false
 
-	 	// Decide election
-	 	if (rf.voteCount >= rf.majority) {
-	 		fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Elected New Leader \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String())
-	 		// Protocol: Transition to leader state. 
-	 		rf.myState = Leader
-	 		rf.electionTimer.Stop()
-	 		rf.heartbeatTimer.Reset(time.Millisecond * 50)
-	 		// Initialize leader specific variables. 
-	 		rf.nextIndex = make([]int, len(rf.peers))
-	 		rf.matchIndex =  make([]int, len(rf.peers))
-	 		for i := range(rf.nextIndex) {
+	//Setup outgoing arguments
+	args := RequestVoteArgs{
+		Term: rf.currentTerm,
+		CandidateId: rf.me,
+		LastLogIndex: len(rf.log)}
 
-	 			rf.nextIndex[i] = len(rf.log) + 1
-	 			rf.matchIndex[i] = 0
+	// If tree to ensure correct first-time LastLogTerm initialization 
+	if len(rf.log) == 0 {
+		args.LastLogTerm = -1
+	} else {
+		args.LastLogTerm = rf.log[len(rf.log)-1].Term
+	}
 
-	 		}
+	var reply RequestVoteReply
+	msg_received := rf.sendRequestVote(server, args, &reply)
+
+	// If we don't get a message back, then we cannot trust the data in reply. 
+	if (msg_received) {
+		// A server only accepts votes if they believe they are a candidate. Important because might accumulate votes as
+		// follower through delayed RPCs.
+		if (rf.myState == Candidate) {
+			//Count votes
+			if (reply.VoteGranted) {
+		 		myvoteGranted = true
+		 	} else {
+		 		myvoteGranted = false
+		 	}
 	 	}
  	}
+
+ 	return myvoteGranted
 }
 
 // Logic to update the log of the follower
@@ -607,22 +624,23 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *RequestVoteReply) bool {
 	fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Method sendRequestVote sent to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String(), server, args)
 	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
+	// Only can process data in reply if the RPC was delivered
+	if(ok) {
+		// Protocol: As always, if this server's term is lagging, update the term. 
+		// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
+		if (reply.Term > rf.currentTerm) {
+			rf.currentTerm = reply.Term
+			rf.votedFor = -1
 
-
-	// Protocol: As always, if this server's term is lagging, update the term. 
-	// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
-	if (reply.Term > rf.currentTerm) {
-		rf.currentTerm = reply.Term
-		rf.votedFor = -1
-
-		if (rf.myState == Leader)  {
-			//Transition from Leader to Follower: reset electionTimer
-			rf.myState = Follower
-			rf.electionTimer.Reset(getElectionTimeout())
-			rf.heartbeatTimer.Stop()
-		} else if (rf.myState == Candidate) {
-			rf.myState = Follower
-			rf.electionTimer.Reset(getElectionTimeout())
+			if (rf.myState == Leader)  {
+				//Transition from Leader to Follower: reset electionTimer
+				rf.myState = Follower
+				rf.electionTimer.Reset(getElectionTimeout())
+				rf.heartbeatTimer.Stop()
+			} else if (rf.myState == Candidate) {
+				rf.myState = Follower
+				rf.electionTimer.Reset(getElectionTimeout())
+			}
 		}
 	}
 
@@ -720,20 +738,22 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 	fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Method sendAppendEntries sent to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String(), server, args)
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
 
-	// Protocol: As always, if this server's term is lagging, update the term. 
-	// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
-	if (reply.Term > rf.currentTerm) {
-		rf.currentTerm = reply.Term
-		rf.votedFor = -1
+	if(ok) {
+		// Protocol: As always, if this server's term is lagging, update the term. 
+		// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
+		if (reply.Term > rf.currentTerm) {
+			rf.currentTerm = reply.Term
+			rf.votedFor = -1
 
-		if (rf.myState == Leader)  {
-			//Transition from Leader to Follower: reset electionTimer
-			rf.myState = Follower
-			rf.electionTimer.Reset(getElectionTimeout())
-			rf.heartbeatTimer.Stop()
-		} else if (rf.myState == Candidate) {
-			rf.myState = Follower
-			rf.electionTimer.Reset(getElectionTimeout())
+			if (rf.myState == Leader)  {
+				//Transition from Leader to Follower: reset electionTimer
+				rf.myState = Follower
+				rf.electionTimer.Reset(getElectionTimeout())
+				rf.heartbeatTimer.Stop()
+			} else if (rf.myState == Candidate) {
+				rf.myState = Follower
+				rf.electionTimer.Reset(getElectionTimeout())
+			}
 		}
 	}
 
@@ -828,8 +848,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.commitIndex = 0
 	rf.lastApplied = 0
 
-	//Initialize raft states (variables created for supplemental use)
-	rf.voteCount = 0
 	//Determine votes needed for a majority. (Use implicit truncation of integers in divsion to get correct result)
 	rf.majority = 1 + len(rf.peers)/2
 	// Protocol: Initialize all new servers (initializes for the first time or after crash) in a follower state. 

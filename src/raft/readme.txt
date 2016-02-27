@@ -4,10 +4,8 @@ ToDo Notes:
 ++ Do I need to mutex (or channel) the act of switching between states. 
 + To Do: When I transition between states, handle correctly initializing variables. 
 + To Do: Implement error check to make sure => Leaders never over-write existing entries in their logs. 
-+ Possible To Do: Count votes locally inside of the vote function. 
 + Possible To Do: Currently have limited amount of client requests I can process simultaneously.
 + Possible To Do: Set a shorter RPC timeout
-+ To Do: Update heart beat AppendEntries Parameters. 
 + To Do: Drain the Service channel when I switch out of leader. (do I need to do this?)
 + To Do: Move the resetting of heartbeat timer to beginning of sendAppendEnries RPC function. Anytime I send, I should reset that timer => Actually, I dont' think this is right since you might be only talking to a single server (figurign out how to update), but still need to send heartbeats to other servers. 
 + To Do: Anything that is just specific to one state should be protected by an if statement for that state. 
