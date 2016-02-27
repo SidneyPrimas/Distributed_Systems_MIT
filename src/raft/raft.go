@@ -115,6 +115,9 @@ type Raft struct {
 // return currentTerm and whether this server
 // believes it is the leader.
 func (rf *Raft) GetState() (int, bool) {
+	 // Needed to maintain appropriate concurrency 
+	rf.mu.Lock()
+  	defer rf.mu.Unlock()
 
 	var term int
 	var isleader bool
@@ -167,6 +170,9 @@ func (rf *Raft) manageRaftInterrupts() {
 		// Handles incoming service requests. Incoming requests must be handled in parallel
 		case logIndex := <-rf.serviceClientChan:
 
+			 //Lock Handling serviceClientChan
+			rf.mu.Lock()
+  			
 			// Note: Only handle Client Requests when Leader. 
 			// Note: This check might be necessary if the serviceClientChan is backlogged, and we switch from a leader to a follower state
 			// without this serve failing. Not 100% necessary since we check for Leader again below.
@@ -198,6 +204,9 @@ func (rf *Raft) manageRaftInterrupts() {
 					}
 				}
 			}
+
+			//Unlock Handling serviceClientChan
+			rf.mu.Unlock()
 
 		// Sends hearbeats. 
 		// A server only sends hearbeats if they believe to be leader. 
@@ -343,18 +352,25 @@ func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs) (success bool)
 	fmt.Printf("%s, Server%d, Term%d, State: %s, Action: processAppendEntryRequest, Log => %v \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String(),  rf.log)
 	fmt.Printf("Entries in AppendEntries RPC in processAppendEntryRequest: %v \n", args.Entries)
 
-	// Handle case where we reached the end of the log.
+
+	// Handle out of index edge cases: out of range of log[i]
 	var myPrevLogTerm int
+	var out_of_index bool = false
 	if (args.PrevLogIndex == 0) {
 		myPrevLogTerm = -1
+	} else if (len(rf.log) < args.PrevLogIndex) {
+		out_of_index = true
 	} else {
 		myPrevLogTerm = rf.log[args.PrevLogIndex-1].Term
 	}
 
 
+
 	// Protocol: Determine if the previous entry has the same term an index
 	// Protocol: If it doesn't, return false. 
-	if (myPrevLogTerm != args.PrevLogTerm) {
+	if (out_of_index) {
+		success = false
+	} else if (myPrevLogTerm != args.PrevLogTerm) {
 		success = false
 	// Protocol: If the previous log entry has the same term/index, update this server's log
 	} else {
@@ -414,7 +430,6 @@ func (rf *Raft) updateFollowerLogs(server int) {
 	// Setup outgoing arguments.
 	// Protocol: These arguments should be re-initialized for each RPC call since rf might update in the meantime.
 	// We want to replicate the leader log everywhere, so we can always send it when the follower is out of date. 
-	var reply AppendEntriesReply
 	start_index_sending := rf.nextIndex[server]
 	final_index_sending := len(rf.log)
 
@@ -437,13 +452,17 @@ func (rf *Raft) updateFollowerLogs(server int) {
 
 	// Protocol: The leader should send all logs from requested index, and upwards. 
 	args.Entries = rf.log[start_index_sending-1:final_index_sending]
+
+	var reply AppendEntriesReply
 	msg_received := rf.sendAppendEntries(server, args, &reply)
 	
 	// Handle the reply. 
 	// Note: If the msg isn't received by server, send another message. 
 	if (msg_received) {
 
+
 		if (reply.Success) {
+			
 			// The follower server is now up to date (both the logs and the commit)
 			// Protocol: After successful AppendEntries, increase nextIndex for this server to one above the last index
 			// sent by the last AppendEntries RPC request. 
@@ -543,6 +562,9 @@ type RequestVoteReply struct {
 //
 // Function handles an incoming RPC call for Leader Election. 
 func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
+	 // Needed to maintain appropriate concurrency 
+	rf.mu.Lock()
+  	defer rf.mu.Unlock()
 
 	// Protocol: As always, if this server's term is lagging, update the term. 
 	// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
@@ -622,8 +644,16 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 // Sidney: Function sends an outgoing RPC request with go. 
 //
 func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *RequestVoteReply) bool {
+	rf.mu.Lock()
 	fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Method sendRequestVote sent to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String(), server, args)
+	rf.mu.Unlock()
+
 	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
+	  // Needed to maintain appropriate concurrency 
+	rf.mu.Lock()
+  	defer rf.mu.Unlock()
+
+
 	// Only can process data in reply if the RPC was delivered
 	if(ok) {
 		// Protocol: As always, if this server's term is lagging, update the term. 
@@ -674,6 +704,9 @@ type AppendEntriesReply struct {
 // Sidney: Functions handles as an indication of a heartbeat
 //
 func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply) {
+	// Needed to maintain appropriate concurrency 
+	rf.mu.Lock()
+  	defer rf.mu.Unlock()
 
 	// If the request is from a stale leader (an older term), reject the RPC immediately. 
 	if(args.Term < rf.currentTerm) {
@@ -735,8 +768,17 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 // returns true if labrpc says the RPC was delivered.
 //
 func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *AppendEntriesReply) bool {
+
+	rf.mu.Lock()
 	fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Method sendAppendEntries sent to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String(), server, args)
+	rf.mu.Unlock()
+
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
+
+	// Needed to maintain appropriate concurrency 
+	rf.mu.Lock()
+  	defer rf.mu.Unlock()
+  	
 
 	if(ok) {
 		// Protocol: As always, if this server's term is lagging, update the term. 
@@ -746,6 +788,7 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 			rf.votedFor = -1
 
 			if (rf.myState == Leader)  {
+				fmt.Printf("Server%d Stop Being a Leader\n", rf.me)
 				//Transition from Leader to Follower: reset electionTimer
 				rf.myState = Follower
 				rf.electionTimer.Reset(getElectionTimeout())
@@ -777,6 +820,9 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 // the leader.
 //
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
+	// Needed to maintain appropriate concurrency 
+	rf.mu.Lock()
+  	defer rf.mu.Unlock()
 
 	// Initialize variables
 	var index int
@@ -799,6 +845,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		fmt.Printf("%s, Server%d, Term%d, State: %s, Action: LEADER RECEIVED NEW START(), New Log Entry => (%v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.myState.String(), newLog)
 
 		rf.log = append(rf.log, newLog)
+		rf.matchIndex[rf.me] = len(rf.log)
 
 		index = len(rf.log)
 		term = rf.currentTerm
@@ -837,12 +884,18 @@ func (rf *Raft) Kill() {
 //
 func Make(peers []*labrpc.ClientEnd, me int,
 	persister *Persister, applyCh chan ApplyMsg) *Raft {
+
 	
 	// INITIALIZE VOLATILE STATES //
 	rf := &Raft{}
 	rf.peers = peers
 	rf.persister = persister
 	rf.me = me
+	rf.mu = sync.Mutex{}
+	// Needed to maintain appropriate concurrency 
+	// Note: This case probably not necessary, but included for saftey 
+	rf.mu.Lock()
+  	defer rf.mu.Unlock()
 
 	// Initialize volatile states (variables described by Figure2)
 	rf.commitIndex = 0
@@ -875,7 +928,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		rf.currentTerm = 0
 		rf.votedFor = -1
 	}
-
 
 	go rf.manageRaftInterrupts()
 

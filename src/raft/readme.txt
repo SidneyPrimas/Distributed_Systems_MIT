@@ -10,6 +10,8 @@ ToDo Notes:
 + To Do: Move the resetting of heartbeat timer to beginning of sendAppendEnries RPC function. Anytime I send, I should reset that timer => Actually, I dont' think this is right since you might be only talking to a single server (figurign out how to update), but still need to send heartbeats to other servers. 
 + To Do: Anything that is just specific to one state should be protected by an if statement for that state. 
 + To Do: Error check to make sure we never overwrite a committed entry in follower. 
++ To Do: Check if any rf.log have out of index issues
+To Do: How do I figure out if my hearbeats are screwing up my system? 
 
 
 Possible Option: 
@@ -26,7 +28,6 @@ Question:
 
 
 Remember Notes: 
-+ If a follower is behind, you need to send it log data through heartbeats. Heartbeats should send reall data, and not just empty data. 
 + Important: Might have to implement your own RPC timeout (since the inherent one is too long???)
 + Terminology: The word "hear" is when a server "handles a request" and when a server gets back a reply from a request sent out. 
 + Put a buffer channel in Start(): They send many back, to back start commands (that I think I need to handle in order). This will hopefully solve that problem. 
