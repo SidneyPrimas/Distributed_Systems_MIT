@@ -12,6 +12,8 @@ ToDo Notes:
 + To Do: Error check to make sure we never overwrite a committed entry in follower. 
 + To Do: Check if any rf.log have out of index issues
 To Do: How do I figure out if my hearbeats are screwing up my system? 
+To Do: Eliminate Opti_Object, and just updat the return variable directly. 
+To Do: Debug TestBack => Essentially, what we were seeing before is that a server was being elected Leader with 3 votes out of 5 when 1 server should not have voted for ther server. Since it was leader, it was able to change committed logs from the server that should not have voted for it, but did. 
 
 
 Possible Option: 
