@@ -14,18 +14,13 @@ ToDo Notes:
 To Do: How do I figure out if my hearbeats are screwing up my system? 
 To Do: Eliminate Opti_Object, and just updat the return variable directly. 
 To Do: Debug TestBack => Essentially, what we were seeing before is that a server was being elected Leader with 3 votes out of 5 when 1 server should not have voted for ther server. Since it was leader, it was able to change committed logs from the server that should not have voted for it, but did. 
+To Do: 
 
 
 Possible Option: 
 + Handle all client interrupts and timer interrupts within a selection function. 
-+ Handle all variable change with mutex: 
-++ For reads, use mutex to read the variable. 
 
 Question: 
-+ Can incoming RPC requests be processed in parallel? 
-+ Do all items in the rf structure need to be locked when reading/writing for race conditions? 
-+ Are there any situations when we are reading/wrting to raft structure where we don't need a mutex: for example, what if I just read/write without writing it back to the variable. 
-+ Are we essentially just mutexing entire functions? So, the only time we don't have a lock on those variables is when we are communcating?
 + Do I need to handle transitions differently? 
 
 

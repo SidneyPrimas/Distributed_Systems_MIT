@@ -21,8 +21,8 @@ import "sync"
 import "labrpc"
 import "time"
 import "math/rand"
-import "fmt"
 import "math"
+import "fmt"
 
 import "bytes"
 import "encoding/gob"
@@ -111,6 +111,7 @@ type Raft struct {
 
 	majority int
 	myState RaftState
+	debug int
 
 }
 
@@ -180,8 +181,9 @@ func (rf *Raft) manageRaftInterrupts() {
 			// Note: This check might be necessary if the serviceClientChan is backlogged, and we switch from a leader to a follower state
 			// without this serve failing. Not 100% necessary since we check for Leader again below.
 			if (rf.myState == Leader) {
-				fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Leader Begins log consistency routtine \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString())
-				fmt.Printf("TheLog: %v \n", rf.log)
+				
+				rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Leader Begins RPC  consistency routine \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString())
+
 
 				// Sidney: If server believes itself to be the leader and sends AppendEntries, turn-on/reset heartbeat timer. 
 				rf.heartbeatTimer.Reset(time.Millisecond * 50)
@@ -191,12 +193,15 @@ func (rf *Raft) manageRaftInterrupts() {
 				for thisServer := 0; thisServer < len(rf.peers); thisServer++ {
 					if (thisServer != rf.me) {
 						// Note: Implement Go routine to call all AppendEntries requests seperately. 
+						// Note: Since this is an infinite loop, make sure to close this when the other server doesn't respond. 
 						go func(server int) {
 							// Note: While loop executes until server's log is at least as up to date as the logIndex.
 							// Note: Only can send these AppendEntries if server is the leader
 
 							
 							var loop bool = true
+							// To begin, we assume that the server is functioning. If the server doesn't respond, exit the Go Routine
+							var msg_received bool = true
 							for  loop {
 
 								rf.mu.Lock()
@@ -204,12 +209,13 @@ func (rf *Raft) manageRaftInterrupts() {
 								myNextIndex_temp := rf.nextIndex[server]
 								rf.mu.Unlock()
 
-								if ((logIndex >= myNextIndex_temp) && (myState_temp == Leader)) {
+								if ((logIndex >= myNextIndex_temp) && (myState_temp == Leader) && (msg_received)) {
 
 								// Protocol: Create a go routine for a server that doesn't complete until that server is
 								//  up-to-date as to the logIndex of the log of the leader. 
 								// Note: Go routine will have access to updated rf raft structure. 
-								rf.updateFollowerLogs(server)
+								msg_received = rf.updateFollowerLogs(server)
+
 
 								// When the if statement isn't satisfied, exit the while loop
 								} else {
@@ -236,8 +242,8 @@ func (rf *Raft) manageRaftInterrupts() {
 			//Error Checking
 			if (rf.myState == Leader) {
 			
-				fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Send out heartbeat \n", currentTime.Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString())
-				fmt.Printf("TheLog: %v \n", rf.log)
+				rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Send out heartbeat \n", currentTime.Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString())
+				rf.dPrintf1("TheLog: %v \n", rf.log)
 
 				// Sidney: If server believes itself to be the leader, turn on heartbeat timer. 
 				rf.heartbeatTimer.Reset(time.Millisecond * 50)
@@ -278,7 +284,7 @@ func (rf *Raft) manageRaftInterrupts() {
 				var voteCount_mu = &sync.Mutex{}
 				var voteCount int = 1
 
-				fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Election Time Interrupt \n", currentTime.Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString())
+				rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Election Time Interrupt \n", currentTime.Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString())
 
 
 				// Protocol: Reset election timer (in case we have split brain issues.)
@@ -293,25 +299,25 @@ func (rf *Raft) manageRaftInterrupts() {
 							
 
 							// Document if the vote was or was not granted.
-							voteGranted := rf.getVotes(server)
+							voteGranted, msg_received := rf.getVotes(server)
 							//Lock_select_votes
 							rf.mu.Lock()
 							defer rf.mu.Unlock()
 
 
 							var voteCount_temp int
-							if (voteGranted) {
+							if (voteGranted && msg_received) {
 								voteCount_mu.Lock()
 								voteCount = voteCount +1
 								voteCount_temp = voteCount
 								voteCount_mu.Unlock()
-								fmt.Printf("Vote Granted \n")
+								rf.dPrintf1("Vote Granted \n")
 
 							}
 
 							// Decide election
 						 	if (voteCount_temp >= rf.majority) {
-						 		fmt.Printf("Server%d, Term%d, State: %s, Action: Elected New Leader , votes: %d\n",rf.me, rf.currentTerm, rf.stateToString(), voteCount_temp)
+						 		rf.dPrintf1("Server%d, Term%d, State: %s, Action: Elected New Leader , votes: %d\n",rf.me, rf.currentTerm, rf.stateToString(), voteCount_temp)
 						 		// Protocol: Transition to leader state. 
 						 		rf.myState = Leader
 						 		rf.electionTimer.Stop()
@@ -344,13 +350,13 @@ func (rf *Raft) manageRaftInterrupts() {
 }
 
 // Collects submitted votes, and determine election result. 
-func (rf *Raft) getVotes(server int) bool  {
+func (rf *Raft) getVotes(server int)  (myvoteGranted bool, msg_received bool)  {
 
 	//Lock_getVotes
 	rf.mu.Lock()
 
 	//Return Variable: defaults to false
-	var myvoteGranted bool = false
+	myvoteGranted  = false
 
 	//Setup outgoing arguments
 	args := RequestVoteArgs{
@@ -368,7 +374,7 @@ func (rf *Raft) getVotes(server int) bool  {
 	//Lock_getVotes
 	rf.mu.Unlock()
 	var reply RequestVoteReply
-	msg_received := rf.sendRequestVote(server, args, &reply)
+	msg_received = rf.sendRequestVote(server, args, &reply)
 	//Deferred lock for concurrency
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
@@ -387,12 +393,12 @@ func (rf *Raft) getVotes(server int) bool  {
 	 	}
  	}
 
- 	return myvoteGranted
+ 	return myvoteGranted, msg_received
 }
 
 // Logic to update the log of the follower
 func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs, reply *AppendEntriesReply)  {
-	fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Append RPC Request, args => %v, rf.Log => %v , Entries => %v \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(),  args, rf.log, args.Entries)
+	rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Append RPC Request, args => %v, rf.Log => %v , Entries => %v \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(),  args, rf.log, args.Entries)
 
 
 
@@ -444,8 +450,13 @@ func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs, reply *AppendE
 
 				// Identify the conflict
 				entriesIDifferent = i
-				// Delete the entry, and all that follow
+				// Delete the entry at logIDifferent, and all that follow
 				logIDifferent := args.PrevLogIndex+i
+				// Note: If we remove an entry that has been committed, throw an error. 
+				// Note: We remove anything at or above logIDifferent, so throw error when of commitIndex_i is greater or equal. 
+				if (logIDifferent <= rf.commitIndex-1) {
+					rf.error("Error: Deleting Logs already committed.  \n", );
+				}
 				rf.log = rf.log[:logIDifferent]
 				break
 			}
@@ -462,7 +473,7 @@ func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs, reply *AppendE
 			// there is no way to commit entires that are not in log. 
 			rf.commitIndex = int(math.Min(float64(args.LeaderCommit), float64(len(rf.log))))
 			if (rf.commitIndex != args.LeaderCommit) {
-				fmt.Printf("Error: Claimed to have updated the full log of a follower, but didn't \n")
+				rf.error("Error: Claimed to have updated the full log of a follower, but didn't \n")
 			}
 		}
 
@@ -472,12 +483,12 @@ func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs, reply *AppendE
 
 // Protocol: Used to send AppendEntries request to each server until the followr server updates. 
 // Protocol: Also used for hearbeats
-func (rf *Raft) updateFollowerLogs(server int) {
+func (rf *Raft) updateFollowerLogs(server int) bool {
 
 	//Lock_updateFollowerLogs_beginning
 	rf.mu.Lock()
 
-	fmt.Printf("Server%d, Term%d, State: %s, Action: updateFollowerLogs \n",rf.me, rf.currentTerm, rf.stateToString())
+	rf.dPrintf1("Server%d, Term%d, State: %s, Action: updateFollowerLogs \n",rf.me, rf.currentTerm, rf.stateToString())
 
 	// Setup outgoing arguments.
 	// Protocol: These arguments should be re-initialized for each RPC call since rf might update in the meantime.
@@ -503,7 +514,11 @@ func (rf *Raft) updateFollowerLogs(server int) {
 
 
 	// Protocol: The leader should send all logs from requested index, and upwards. 
-	args.Entries = rf.log[start_index_sending-1:final_index_sending]
+	// Important: Make sure to copy arrays to a new array. Otherwise, we just send the pointer, and then can get race conditions.
+	entries_temp := rf.log[start_index_sending-1:final_index_sending] 
+	entriesToSend := make([]RaftLog, len(entries_temp))
+	copy(entriesToSend, entries_temp)
+	args.Entries = entriesToSend
 
 
 	//Lock_updateFollowerLogs_beginning
@@ -522,7 +537,6 @@ func (rf *Raft) updateFollowerLogs(server int) {
 
 
 		if (reply.Success) {
-			fmt.Printf("Reply.Success: %v \n", reply)
 			
 			// The follower server is now up to date (both the logs and the commit)
 			// Protocol: After successful AppendEntries, increase nextIndex for this server to one above the last index
@@ -530,14 +544,14 @@ func (rf *Raft) updateFollowerLogs(server int) {
 			rf.nextIndex[server] =  final_index_sending + 1
 			rf.matchIndex[server] = final_index_sending
 
-			fmt.Printf("Server%d, Term%d, State: %s, Action: Update Match Index matchIndex => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.matchIndex)
+			rf.dPrintf1("Server%d, Term%d, State: %s, Action: Update Match Index matchIndex => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.matchIndex)
 
 
 			rf.checkCommitStatus()
 
 		} else if (!reply.Success) {
 			// Protocol: If fail because of log inconsistency, decrement next index by 1. 
-			fmt.Printf("ConflictingTerm: %d \n", reply.ConflictingTerm)
+			rf.dPrintf1("ConflictingTerm: %d \n", reply.ConflictingTerm)
 
 			var myNextIndex int = args.PrevLogIndex
 			//TODO: Implement fast update. Reason about correctness
@@ -555,6 +569,8 @@ func (rf *Raft) updateFollowerLogs(server int) {
 		}
 
 	}
+	//Return if the server is still responding. 
+	return msg_received
 }
 
 // Go routine that runs in background committing entries when possible. 
@@ -572,7 +588,7 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
 			msgOut.Index = rf.lastApplied
 			msgOut.Command = rf.log[rf.lastApplied-1].Command
 			applyCh <- msgOut
-			fmt.Printf("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, log => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.commitIndex, rf.log)
+			rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, log => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.commitIndex, rf.log)
 		}
 		rf.mu.Unlock()
 
@@ -613,7 +629,7 @@ func (rf *Raft) checkCommitStatus() {
 		// Update rf.commitIndex if it has changed from 0. 
 		if (tempCommitIndex != 0) {
 			rf.commitIndex = tempCommitIndex
-			fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Update commitIndex for Leader to %d, log => %v \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), rf.commitIndex, rf.log)
+			rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Update commitIndex for Leader to %d, log => %v \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), rf.commitIndex, rf.log)
 		}
 	}
 
@@ -675,7 +691,7 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	} else {
 
 		if (args.Term != rf.currentTerm) {
-			fmt.Printf("Error: Server is voting, but is not in the same term as candidate.\n");
+			rf.error("Error: Server is voting, but is not in the same term as candidate.\n");
 		}
 
 		//Setup variables
@@ -711,7 +727,7 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	}
 
 	reply.Term = rf.currentTerm
-	//fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Method RequestVote Prcoessed, Reply => (%+v) \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), reply)
+	//rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Method RequestVote Prcoessed, Reply => (%+v) \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), reply)
 }
 
 
@@ -729,7 +745,7 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 //
 func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *RequestVoteReply) bool {
 	//rf.mu.Lock()
-	//fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Method sendRequestVote sent to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), server, args)
+	//rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Method sendRequestVote sent to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), server, args)
 	//rf.mu.Unlock()
 
 	ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
@@ -750,6 +766,7 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 			if (rf.myState == Leader)  {
 				//Transition from Leader to Follower: reset electionTimer
 				rf.myState = Follower
+				rf.dPrintf1("Server%d Stop Being a Leader\n", rf.me)
 				rf.electionTimer.Reset(getElectionTimeout())
 				rf.heartbeatTimer.Stop()
 			} else if (rf.myState == Candidate) {
@@ -817,6 +834,7 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 			if (rf.myState == Leader)  {
 				//Transition from Leader to Follower: reset electionTimer
 				rf.myState = Follower
+				rf.dPrintf1("Server%d Stop Being a Leader\n", rf.me)
 				rf.electionTimer.Reset(getElectionTimeout())
 				rf.heartbeatTimer.Stop()
 			} else if (rf.myState == Candidate) {
@@ -834,7 +852,7 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 				rf.myState = Follower
 				rf.electionTimer.Reset(getElectionTimeout())
 			} else if (rf.myState == Leader) {
-				fmt.Printf("Error: Two leaders have been selected in the same term. \n")
+				rf.error("Error: Two leaders have been selected in the same term. \n")
 			}
 		}
 
@@ -844,7 +862,7 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 	}
 
 	reply.Term = rf.currentTerm
-	//fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Method AppendEntries Prcoessed, Reply => (%+v) \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), reply)
+	//rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Method AppendEntries Prcoessed, Reply => (%+v) \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), reply)
 
 }
 
@@ -857,7 +875,7 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *AppendEntriesReply) bool {
 
 	rf.mu.Lock()
-	//fmt.Printf("%s, Server%d, Term%d, State: %s, Action: Method sendAppendEntries sent to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), server, args)
+	//rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Method sendAppendEntries sent to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), server, args)
 	rf.mu.Unlock()
 
 	ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
@@ -876,7 +894,7 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 			rf.persist()
 
 			if (rf.myState == Leader)  {
-				fmt.Printf("Server%d Stop Being a Leader\n", rf.me)
+				rf.dPrintf1("Server%d Stop Being a Leader\n", rf.me)
 				//Transition from Leader to Follower: reset electionTimer
 				rf.myState = Follower
 				rf.electionTimer.Reset(getElectionTimeout())
@@ -930,7 +948,8 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			Term: rf.currentTerm, 
 			Command: command}
 
-		fmt.Printf("%s, Server%d, Term%d, State: %s, Action: LEADER RECEIVED NEW START(), New Log Entry => (%v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), newLog)
+		rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: LEADER RECEIVED NEW START(), New Log Entry => (%v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), newLog)
+
 
 		rf.log = append(rf.log, newLog)
 		rf.persist()
@@ -960,7 +979,9 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 // turn off debug output from this instance.
 //
 func (rf *Raft) Kill() {
-	// Your code here, if desired.
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+	rf.debug = -1
 }
 
 //
@@ -981,6 +1002,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.persister = persister
 	rf.me = me
 	rf.mu = sync.Mutex{}
+	rf.debug = 1
 	// Needed to maintain appropriate concurrency 
 	// Note: This case probably not necessary, but included for saftey 
 	rf.mu.Lock()
@@ -997,7 +1019,6 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	//TIMERS and CHANNELS//
 	//Create election timeout timer
-	//TODO: Do I need to close this timer?
 	rf.electionTimer = time.NewTimer(getElectionTimeout())
 	//Create heartbeat timer. Make sure it's stopped. 
 	rf.heartbeatTimer = time.NewTimer(time.Millisecond * 50)
@@ -1005,7 +1026,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	//Create channel to synchronize log entries by handling incoming client requests. 
 	//Channel is buffered so that we can handle/order 256 client requests simultaneously. 
 	//TODO: Implement technique that doesn't limit how many client requests we can handle simultaneously. 
-	rf.serviceClientChan = make(chan int, 256)
+	rf.serviceClientChan = make(chan int, 512)
 
 
 
@@ -1019,6 +1040,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		rf.votedFor = -1
 
 	}
+
 
 	go rf.manageRaftInterrupts()
 
@@ -1040,4 +1062,25 @@ func getElectionTimeout() time.Duration {
 	newElectionTimeout := time.Duration(seedTime) * time.Millisecond
 	return newElectionTimeout
 
+}
+
+func (rf *Raft) error(format string, a ...interface{}) (n int, err error) {
+	if rf.debug >= 0 {
+		fmt.Printf(format, a...)
+	}
+	return
+}
+
+func (rf *Raft) dPrintf1(format string, a ...interface{}) (n int, err error) {
+	if rf.debug >= 1 {
+		fmt.Printf(format, a...)
+	}
+	return
+}
+
+func (rf *Raft) dPrintf2(format string, a ...interface{}) (n int, err error) {
+	if rf.debug >= 2 {
+		fmt.Printf(format, a...)
+	}
+	return
 }
