@@ -619,7 +619,7 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
 		default:
 			// Needed to maintain appropriate concurrency 
 			rf.mu.Lock()
-			if(rf.commitIndex > rf.lastApplied) {
+			for(rf.commitIndex > rf.lastApplied) {
 
 				rf.lastApplied = rf.lastApplied +1
 
@@ -1096,7 +1096,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.commitIndex = 0
 	rf.lastApplied = 0
 
-	rf.heartbeat_len = 40 
+	rf.heartbeat_len = 40
 	//Determine votes needed for a majority. (Use implicit truncation of integers in divsion to get correct result)
 	rf.majority = 1 + len(rf.peers)/2
 	// Protocol: Initialize all new servers (initializes for the first time or after crash) in a follower state. 
