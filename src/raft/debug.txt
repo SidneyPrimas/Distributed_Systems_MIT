@@ -1,9 +1,138 @@
-Test: leader backs up quickly over incorrect follower logs ...
-Split into Partition of (Followers: 4, 0, 1 ) and (Leader: 2 )
-Disconnect Partitoined Server with old Leader (2, 3) 
-Connect Partitoined Server of  followers (4, 0, 1) 
-Disconnect 0. Another partition of 2 servers (4 and another). We now have 2 partitions 
-Restore original Leader. The following are now connected (2, 3, 0) 
+Test: unreliable churn ...
   ... Passed
 PASS
-ok  	raft	18.436s
+ok  	raft	24.580s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	19.151s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	22.721s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	23.194s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.259s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	22.701s
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	24.903s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	20.838s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	22.577s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	24.879s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	18.484s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	25.274s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	23.345s
+AnotherTest: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	23.368s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	25.627s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.948s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	23.093s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	24.748s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	18.278s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	22.502s
+Test: churn ...
+--- FAIL: TestReliableChurn (26.43s)
+	config.go:408: one(3702321401132008508) failed to reach agreement
+FAIL
+exit status 1
+FAIL	raft	26.443s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	23.744s
+Test: churn ...
+--- FAIL: TestReliableChurn (26.17s)
+	config.go:408: one(1658676314340372065) failed to reach agreement
+FAIL
+exit status 1
+FAIL	raft	26.175s
+Test: churn ...
+--- FAIL: TestReliableChurn (26.16s)
+	config.go:408: one(7908955889271129615) failed to reach agreement
+FAIL
+exit status 1
+FAIL	raft	26.167s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	26.116s
+Test: churn ...
+--- FAIL: TestReliableChurn (26.18s)
+	config.go:408: one(9058420749805154769) failed to reach agreement
+FAIL
+exit status 1
+FAIL	raft	26.186s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	24.353s
+Test: churn ...
+exit status 2
+FAIL	raft	0.937s
+Test: churn ...
+Test: churn ...

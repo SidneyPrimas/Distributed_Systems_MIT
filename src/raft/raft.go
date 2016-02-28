@@ -108,10 +108,12 @@ type Raft struct {
 	electionTimer *time.Timer
 	heartbeatTimer *time.Timer
 	serviceClientChan chan int
+	shutdownChan chan int
 
 	majority int
 	myState RaftState
 	debug int
+	heartbeat_len time.Duration
 
 }
 
@@ -186,7 +188,7 @@ func (rf *Raft) manageRaftInterrupts() {
 
 
 				// Sidney: If server believes itself to be the leader and sends AppendEntries, turn-on/reset heartbeat timer. 
-				rf.heartbeatTimer.Reset(time.Millisecond * 50)
+				rf.heartbeatTimer.Reset(time.Millisecond * rf.heartbeat_len)
 
 
 				// Protocol: Make new log consistent by sending AppendEntry RPC to all servers. 
@@ -198,33 +200,38 @@ func (rf *Raft) manageRaftInterrupts() {
 							// Note: While loop executes until server's log is at least as up to date as the logIndex.
 							// Note: Only can send these AppendEntries if server is the leader
 
-							
+						
+
 							var loop bool = true
 							// To begin, we assume that the server is functioning. If the server doesn't respond, exit the Go Routine
 							var msg_received bool = true
 							for  loop {
 
-								rf.mu.Lock()
-								myState_temp := rf.myState
-								myNextIndex_temp := rf.nextIndex[server]
-								rf.mu.Unlock()
+								select {
+								case <- rf.shutdownChan:
+									return
+								default:
+									rf.mu.Lock()
+									myState_temp := rf.myState
+									myNextIndex_temp := rf.nextIndex[server]
+									rf.mu.Unlock()
 
-								if ((logIndex >= myNextIndex_temp) && (myState_temp == Leader) && (msg_received)) {
+									if ((logIndex >= myNextIndex_temp) && (myState_temp == Leader) && (msg_received)) {
 
-								// Protocol: Create a go routine for a server that doesn't complete until that server is
-								//  up-to-date as to the logIndex of the log of the leader. 
-								// Note: Go routine will have access to updated rf raft structure. 
-								msg_received = rf.updateFollowerLogs(server)
+									// Protocol: Create a go routine for a server that doesn't complete until that server is
+									//  up-to-date as to the logIndex of the log of the leader. 
+									// Note: Go routine will have access to updated rf raft structure. 
+									msg_received = rf.updateFollowerLogs(server)
 
 
-								// When the if statement isn't satisfied, exit the while loop
-								} else {
-									loop = false
+									// When the if statement isn't satisfied, exit the while loop
+									} else {
+										loop = false
+									}
 								}
 
-
-
-							}
+								}
+							
 						}(thisServer)
 					}
 				}
@@ -246,7 +253,7 @@ func (rf *Raft) manageRaftInterrupts() {
 				
 
 				// Sidney: If server believes itself to be the leader, turn on heartbeat timer. 
-				rf.heartbeatTimer.Reset(time.Millisecond * 50)
+				rf.heartbeatTimer.Reset(time.Millisecond * rf.heartbeat_len)
 
 				// Protocol: If server believes to be the leader, sends heartbeats to all peer servers. 
 				// Note: The heartbeat will try to update the follower. Heartbeat sends a single update, and does not iterate until follower is updated. 
@@ -255,7 +262,12 @@ func (rf *Raft) manageRaftInterrupts() {
 					if (thisServer != rf.me) {
 
 						// Note: Go routine will have access to updated rf raft structure. 
-						go rf.updateFollowerLogs(thisServer)
+
+						go func(server int) {
+							rf.updateFollowerLogs(server)
+						}(thisServer)
+
+						
 					}
 				}
 			}
@@ -297,7 +309,8 @@ func (rf *Raft) manageRaftInterrupts() {
 						// Important: Need to use anonymous function implementation so that: We can run multiple requests in parallel
 						go func(server int) {
 							
-
+							
+							
 							// Document if the vote was or was not granted.
 							voteGranted, msg_received := rf.getVotes(server)
 							//Lock_select_votes
@@ -320,7 +333,7 @@ func (rf *Raft) manageRaftInterrupts() {
 						 		// Protocol: Transition to leader state. 
 						 		rf.myState = Leader
 						 		rf.electionTimer.Stop()
-						 		rf.heartbeatTimer.Reset(time.Millisecond * 50)
+						 		rf.heartbeatTimer.Reset(time.Millisecond * rf.heartbeat_len)
 
 						 		// Initialize leader specific variables. 
 						 		rf.nextIndex = make([]int, len(rf.peers))
@@ -332,7 +345,7 @@ func (rf *Raft) manageRaftInterrupts() {
 
 						 		}
 						 	}
-
+						 	
 						}(thisServer)
 					}
 					
@@ -341,9 +354,9 @@ func (rf *Raft) manageRaftInterrupts() {
 
 			//Lock_select_election_timer
 			rf.mu.Unlock()
-		//case <-rf.shutdown:
-  			// quit: Handle leqcky goRoutines
-  			//return
+		case <-rf.shutdownChan:
+  			//quit: Handle leqcky goRoutines
+  			return
 
 		}
 	}
@@ -582,6 +595,7 @@ func (rf *Raft) updateFollowerLogs(server int) bool {
 					break
 				}
 			}
+			// Method to increase speed even faster by sending all logs. 
 			myNextIndex = 1
 			rf.nextIndex[server] = myNextIndex
 			
@@ -597,21 +611,28 @@ func (rf *Raft) updateFollowerLogs(server int) bool {
 func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
 
 	for  {
-		// Needed to maintain appropriate concurrency 
-		rf.mu.Lock()
-		if(rf.commitIndex > rf.lastApplied) {
 
-			rf.lastApplied = rf.lastApplied +1
+		select {
+		case <-rf.shutdownChan:
+  			// Gargabe Collection
+  				return
+		default:
+			// Needed to maintain appropriate concurrency 
+			rf.mu.Lock()
+			if(rf.commitIndex > rf.lastApplied) {
 
-			msgOut := ApplyMsg{}
-			msgOut.Index = rf.lastApplied
-			msgOut.Command = rf.log[rf.lastApplied-1].Command
-			applyCh <- msgOut
-			rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, log => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.commitIndex, rf.log)
+				rf.lastApplied = rf.lastApplied +1
+
+				msgOut := ApplyMsg{}
+				msgOut.Index = rf.lastApplied
+				msgOut.Command = rf.log[rf.lastApplied-1].Command
+				applyCh <- msgOut
+				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, log => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.commitIndex, rf.log)
+			}
+			rf.mu.Unlock()
+
+			time.Sleep(time.Millisecond * rf.heartbeat_len)
 		}
-		rf.mu.Unlock()
-
-		time.Sleep(time.Millisecond * 50)
 	}
 }
 
@@ -766,37 +787,52 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 	//rf.mu.Lock()
 	//rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Method sendRequestVote sent to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), server, args)
 	//rf.mu.Unlock()
+	
 
-	var ok bool = false
+
+
+	RPC_returned := make(chan bool)
 	myState_temp :=rf.getLockedState()
 	if (myState_temp == Candidate) {
-		ok = rf.peers[server].Call("Raft.RequestVote", args, reply)
+
+		go func(goArgs RequestVoteArgs, goReply *RequestVoteReply,output chan bool) {
+			ok := rf.peers[server].Call("Raft.RequestVote", goArgs, goReply)
+			output <- ok
+		}(args, reply, RPC_returned)
+
 	}
 
+	//Allows for RPC Timeout
+	var ok bool = false
+	select {
+	case <-time.After(time.Second * 2):
+	  	ok = false
+	case ok = <-RPC_returned:
 	
-	  // Needed to maintain appropriate concurrency 
-	rf.mu.Lock()
-  	defer rf.mu.Unlock()
+		 // Needed to maintain appropriate concurrency 
+		rf.mu.Lock()
+	  	defer rf.mu.Unlock()
 
 
-	// Only can process data in reply if the RPC was delivered
-	if(ok && (rf.myState == Candidate)) {
-		// Protocol: As always, if this server's term is lagging, update the term. 
-		// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
-		if (reply.Term > rf.currentTerm) {
-			rf.currentTerm = reply.Term
-			rf.votedFor = -1
-			rf.persist()
+		// Only can process data in reply if the RPC was delivered
+		if(ok && (rf.myState == Candidate)) {
+			// Protocol: As always, if this server's term is lagging, update the term. 
+			// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
+			if (reply.Term > rf.currentTerm) {
+				rf.currentTerm = reply.Term
+				rf.votedFor = -1
+				rf.persist()
 
-			if (rf.myState == Leader)  {
-				//Transition from Leader to Follower: reset electionTimer
-				rf.myState = Follower
-				rf.dPrintf1("Server%d Stop Being a Leader\n", rf.me)
-				rf.electionTimer.Reset(getElectionTimeout())
-				rf.heartbeatTimer.Stop()
-			} else if (rf.myState == Candidate) {
-				rf.myState = Follower
-				rf.electionTimer.Reset(getElectionTimeout())
+				if (rf.myState == Leader)  {
+					//Transition from Leader to Follower: reset electionTimer
+					rf.myState = Follower
+					rf.dPrintf1("Server%d Stop Being a Leader\n", rf.me)
+					rf.electionTimer.Reset(getElectionTimeout())
+					rf.heartbeatTimer.Stop()
+				} else if (rf.myState == Candidate) {
+					rf.myState = Follower
+					rf.electionTimer.Reset(getElectionTimeout())
+				}
 			}
 		}
 	}
@@ -905,34 +941,48 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 	rf.mu.Unlock()
 
 
-	var ok bool = false
+
+
 	myState_temp :=rf.getLockedState()
+	RPC_returned := make(chan bool)
 	if (myState_temp == Leader) {
-		ok = rf.peers[server].Call("Raft.AppendEntries", args, reply)
+		
+		go func(goArgs AppendEntriesArgs, goReply *AppendEntriesReply,output chan bool) {
+			ok := rf.peers[server].Call("Raft.AppendEntries", goArgs, goReply)
+			output <- ok
+		}(args, reply, RPC_returned)
 	}
 
-	// Needed to maintain appropriate concurrency 
-	rf.mu.Lock()
-  	defer rf.mu.Unlock()
-  	
+	//Allows for RPC Timeout
+	var ok bool = false
+	select {
+	case <-time.After(time.Second * 2):
+	  	ok = false
+	case ok = <-RPC_returned:
+		
+		// Needed to maintain appropriate concurrency 
+		rf.mu.Lock()
+	  	defer rf.mu.Unlock()
+	  	
 
-	if(ok && rf.myState == Leader) {
-		// Protocol: As always, if this server's term is lagging, update the term. 
-		// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
-		if (reply.Term > rf.currentTerm) {
-			rf.currentTerm = reply.Term
-			rf.votedFor = -1
-			rf.persist()
+		if(ok && rf.myState == Leader) {
+			// Protocol: As always, if this server's term is lagging, update the term. 
+			// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
+			if (reply.Term > rf.currentTerm) {
+				rf.currentTerm = reply.Term
+				rf.votedFor = -1
+				rf.persist()
 
-			if (rf.myState == Leader)  {
-				rf.dPrintf1("Server%d Stop Being a Leader\n", rf.me)
-				//Transition from Leader to Follower: reset electionTimer
-				rf.myState = Follower
-				rf.electionTimer.Reset(getElectionTimeout())
-				rf.heartbeatTimer.Stop()
-			} else if (rf.myState == Candidate) {
-				rf.myState = Follower
-				rf.electionTimer.Reset(getElectionTimeout())
+				if (rf.myState == Leader)  {
+					rf.dPrintf1("Server%d Stop Being a Leader\n", rf.me)
+					//Transition from Leader to Follower: reset electionTimer
+					rf.myState = Follower
+					rf.electionTimer.Reset(getElectionTimeout())
+					rf.heartbeatTimer.Stop()
+				} else if (rf.myState == Candidate) {
+					rf.myState = Follower
+					rf.electionTimer.Reset(getElectionTimeout())
+				}
 			}
 		}
 	}
@@ -1010,8 +1060,11 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 // turn off debug output from this instance.
 //
 func (rf *Raft) Kill() {
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
+	close(rf.shutdownChan)
+	close(rf.serviceClientChan)
+	rf.heartbeatTimer.Stop()
+	rf.electionTimer.Stop()
+
 	rf.debug = -1
 }
 
@@ -1043,6 +1096,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.commitIndex = 0
 	rf.lastApplied = 0
 
+	rf.heartbeat_len = 40 
 	//Determine votes needed for a majority. (Use implicit truncation of integers in divsion to get correct result)
 	rf.majority = 1 + len(rf.peers)/2
 	// Protocol: Initialize all new servers (initializes for the first time or after crash) in a follower state. 
@@ -1052,12 +1106,14 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	//Create election timeout timer
 	rf.electionTimer = time.NewTimer(getElectionTimeout())
 	//Create heartbeat timer. Make sure it's stopped. 
-	rf.heartbeatTimer = time.NewTimer(time.Millisecond * 50)
+	rf.heartbeatTimer = time.NewTimer(time.Millisecond * rf.heartbeat_len)
 	rf.heartbeatTimer.Stop()
 	//Create channel to synchronize log entries by handling incoming client requests. 
 	//Channel is buffered so that we can handle/order 256 client requests simultaneously. 
 	//TODO: Implement technique that doesn't limit how many client requests we can handle simultaneously. 
 	rf.serviceClientChan = make(chan int, 512)
+
+	rf.shutdownChan = make(chan int)
 
 
 
@@ -1089,7 +1145,7 @@ func getElectionTimeout() time.Duration {
 	randSource := rand.NewSource(time.Now().UnixNano())
     r := rand.New(randSource)
 	// Create random number between 150 and 300
-	seedTime := (r.Float32() * float32(150)) + float32(150)
+	seedTime := (r.Float32() * float32(80)) + float32(50)
 	newElectionTimeout := time.Duration(seedTime) * time.Millisecond
 	return newElectionTimeout
 
