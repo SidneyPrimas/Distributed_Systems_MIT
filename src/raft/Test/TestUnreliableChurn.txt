@@ -1,0 +1,240 @@
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.177s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.175s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.163s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.163s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.175s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.349s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.122s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.149s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.128s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.164s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.209s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.167s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.412s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.440s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.128s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.136s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.141s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.145s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.173s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.164s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.239s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.167s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.153s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.483s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.158s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.161s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.171s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.210s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.445s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.162s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.450s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.400s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.167s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.188s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.183s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.359s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.135s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.195s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.159s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.425s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.154s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.464s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.161s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.180s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.166s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.421s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.479s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.400s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.179s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.160s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.187s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.167s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.332s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.182s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.162s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.160s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.440s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.190s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.211s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.158s

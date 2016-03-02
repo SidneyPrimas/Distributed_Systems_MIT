@@ -1,0 +1,40 @@
+Test: election after network failure ...
+  ... Passed
+PASS
+ok  	raft	4.512s
+Test: election after network failure ...
+  ... Passed
+PASS
+ok  	raft	4.513s
+Test: election after network failure ...
+  ... Passed
+PASS
+ok  	raft	4.513s
+Test: election after network failure ...
+  ... Passed
+PASS
+ok  	raft	4.511s
+Test: election after network failure ...
+  ... Passed
+PASS
+ok  	raft	4.514s
+Test: election after network failure ...
+  ... Passed
+PASS
+ok  	raft	4.510s
+Test: election after network failure ...
+  ... Passed
+PASS
+ok  	raft	4.512s
+Test: election after network failure ...
+  ... Passed
+PASS
+ok  	raft	4.515s
+Test: election after network failure ...
+  ... Passed
+PASS
+ok  	raft	4.513s
+Test: election after network failure ...
+  ... Passed
+PASS
+ok  	raft	4.511s

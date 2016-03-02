@@ -30,3 +30,43 @@ Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
 ok  	raft	36.991s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.185s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.160s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.157s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.396s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.147s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.183s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.181s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.369s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.173s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.169s

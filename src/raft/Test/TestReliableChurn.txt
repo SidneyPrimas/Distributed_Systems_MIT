@@ -1,0 +1,40 @@
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.175s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.162s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.337s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.154s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.367s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.141s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.095s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.133s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.353s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.117s

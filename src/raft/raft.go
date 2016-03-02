@@ -27,7 +27,7 @@ import "fmt"
 import "bytes"
 import "encoding/gob"
 
-
+const debug_break = "---------------------------------------------------------------------------------------"
 
 //
 // as each Raft peer becomes aware that successive log entries are
@@ -205,6 +205,9 @@ func (rf *Raft) manageRaftInterrupts() {
 							var loop bool = true
 							// To begin, we assume that the server is functioning. If the server doesn't respond, exit the Go Routine
 							var msg_received bool = true
+							// To begin, we set temp_term to our current term. On future iterations, we need to make sure that the 
+							// received term is in the right term before we act on the data. 
+							var temp_term int = rf.currentTerm
 							for  loop {
 
 								select {
@@ -216,12 +219,15 @@ func (rf *Raft) manageRaftInterrupts() {
 									myNextIndex_temp := rf.nextIndex[server]
 									rf.mu.Unlock()
 
-									if ((logIndex >= myNextIndex_temp) && (myState_temp == Leader) && (msg_received)) {
+									// Critical: These state checks (to make sure the servers state has not changed) need to be made 
+									// here since 1) we just recieved the lock (so other threads could be running in between), 
+									// and 2) we will use this data to make permenant state changes to our system. 
+									if ((logIndex >= myNextIndex_temp) && (myState_temp == Leader) && (msg_received)  && (rf.currentTerm == temp_term)) {
 
 									// Protocol: Create a go routine for a server that doesn't complete until that server is
 									//  up-to-date as to the logIndex of the log of the leader. 
 									// Note: Go routine will have access to updated rf raft structure. 
-									msg_received = rf.updateFollowerLogs(server)
+									msg_received, temp_term = rf.updateFollowerLogs(server)
 
 
 									// When the if statement isn't satisfied, exit the while loop
@@ -230,7 +236,7 @@ func (rf *Raft) manageRaftInterrupts() {
 									}
 								}
 
-								}
+							}
 							
 						}(thisServer)
 					}
@@ -249,7 +255,7 @@ func (rf *Raft) manageRaftInterrupts() {
 			//Error Checking
 			if (rf.myState == Leader) {
 			
-				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Send out heartbeat, log: %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.log)
+				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Send out heartbeat, log: not included \n", rf.me, rf.currentTerm, rf.stateToString())
 				
 
 				// Sidney: If server believes itself to be the leader, turn on heartbeat timer. 
@@ -275,7 +281,7 @@ func (rf *Raft) manageRaftInterrupts() {
 			rf.mu.Unlock()
 
 		// Handles election timeout interrupt: Starts an election
-		case currentTime := <- rf.electionTimer.C: 
+		case <- rf.electionTimer.C: 
 
 			//Lock_select_election_timer
 			rf.mu.Lock()
@@ -293,10 +299,12 @@ func (rf *Raft) manageRaftInterrupts() {
 				// Vote for yourself
 				rf.votedFor = rf.me
 				rf.persist()
+				// Note: the voteCount_mu lock is technically not needed (since the rf.mu should block racy cahnges to voteCount)
+				// We include it for extra saftey. 
 				var voteCount_mu = &sync.Mutex{}
 				var voteCount int = 1
 
-				rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Election Time Interrupt \n", currentTime.Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString())
+				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Election Time Interrupt. Vote count at %d. \n", rf.me, rf.currentTerm, rf.stateToString(), voteCount)
 
 
 				// Protocol: Reset election timer (in case we have split brain issues.)
@@ -312,24 +320,27 @@ func (rf *Raft) manageRaftInterrupts() {
 							
 							
 							// Document if the vote was or was not granted.
-							voteGranted, msg_received := rf.getVotes(server)
+							voteGranted, msg_received, returnedTerm := rf.getVotes(server)
 							//Lock_select_votes
 							rf.mu.Lock()
 							defer rf.mu.Unlock()
 
+							// Critical: These state checks (to make sure the servers state has not changed) need to be made 
+							// here since 1) we just recieved the lock (so other threads could be running in between), 
+							// and 2) we will use this data to make permenant state changes to our system. 
 							var voteCount_temp int
-							if (voteGranted && msg_received && (rf.myState == Candidate)) {
+							if (voteGranted && msg_received && (rf.myState == Candidate) && (rf.currentTerm == returnedTerm)) {
 								voteCount_mu.Lock()
 								voteCount = voteCount +1
 								voteCount_temp = voteCount
-								voteCount_mu.Unlock()
-								rf.dPrintf1("Vote Granted \n")
+								rf.dPrintf1("Server%d, Term%d, State: %s ,Action: Now have a total of %d votes. \n",rf.me, rf.currentTerm, rf.stateToString(), voteCount)
+								voteCount_mu.Unlock()	
 
 							}
 
 							// Decide election
 						 	if ((voteCount_temp >= rf.majority) && (rf.myState == Candidate)){
-						 		rf.dPrintf1("Server%d, Term%d, State: %s, Action: Elected New Leader , votes: %d\n",rf.me, rf.currentTerm, rf.stateToString(), voteCount_temp)
+						 		rf.dPrintf1("%s \n Server%d, Term%d, State: %s, Action: Elected New Leader, votes: %d\n", debug_break, rf.me, rf.currentTerm, rf.stateToString(), voteCount_temp)
 						 		// Protocol: Transition to leader state. 
 						 		rf.myState = Leader
 						 		rf.electionTimer.Stop()
@@ -364,7 +375,7 @@ func (rf *Raft) manageRaftInterrupts() {
 }
 
 // Collects submitted votes, and determine election result. 
-func (rf *Raft) getVotes(server int)  (myvoteGranted bool, msg_received bool)  {
+func (rf *Raft) getVotes(server int)  (myvoteGranted bool, msg_received bool, returnedTerm int)  {
 
 	//Lock_getVotes
 	rf.mu.Lock()
@@ -396,24 +407,25 @@ func (rf *Raft) getVotes(server int)  (myvoteGranted bool, msg_received bool)  {
 	defer rf.mu.Unlock()
 
 	// If we don't get a message back, then we cannot trust the data in reply. 
-	if (msg_received) {
+	if (msg_received && (reply.Term == rf.currentTerm)) {
 		// A server only accepts votes if they believe they are a candidate. Important because might accumulate votes as
 		// follower through delayed RPCs.
 		if (rf.myState == Candidate) {
 			//Count votes
-			if (reply.VoteGranted) {
-		 		myvoteGranted = true
-		 	} else {
-		 		myvoteGranted = false
-		 	}
+			myvoteGranted = reply.VoteGranted
+
 	 	}
  	}
 
- 	return myvoteGranted, msg_received
+
+ 	returnedTerm = reply.Term
+
+ 	return myvoteGranted, msg_received, returnedTerm
 }
 
 // Logic to update the log of the follower
 func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs, reply *AppendEntriesReply)  {
+
 	rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Append RPC Request, args => %v, rf.Log => %v , Entries => %v \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(),  args, rf.log, args.Entries)
 
 
@@ -512,7 +524,7 @@ func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs, reply *AppendE
 
 // Protocol: Used to send AppendEntries request to each server until the followr server updates. 
 // Protocol: Also used for hearbeats
-func (rf *Raft) updateFollowerLogs(server int) bool {
+func (rf *Raft) updateFollowerLogs(server int)  (msg_received bool, returnedTerm int)  {
 
 	//Lock_updateFollowerLogs_beginning
 	rf.mu.Lock()
@@ -553,14 +565,16 @@ func (rf *Raft) updateFollowerLogs(server int) bool {
 
 
 	var reply AppendEntriesReply
-	msg_received := rf.sendAppendEntries(server, args, &reply)
+	msg_received = rf.sendAppendEntries(server, args, &reply)
 
 	//Deferred lock for concurrency issues
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 	
-	// Handle the reply. 
-	if (msg_received && rf.myState == Leader) {
+	// Critical: These state checks (to make sure the servers state has not changed) need to be made 
+	// here since 1) we just recieved the lock (so other threads could be running in between), 
+	// and 2) we will use this data to make permenant state changes to our system. 
+	if (msg_received && (rf.myState == Leader) && (rf.currentTerm == reply.Term)) {
 
 
 		if (reply.Success) {
@@ -574,7 +588,7 @@ func (rf *Raft) updateFollowerLogs(server int) bool {
 			rf.dPrintf1("Server%d, Term%d, State: %s, Action: Update Match Index matchIndex => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.matchIndex)
 
 
-			rf.checkCommitStatus()
+			rf.checkCommitStatus(&reply)
 
 		} else if (!reply.Success) {
 			// Protocol: If fail because of log inconsistency, decrement next index by 1. 
@@ -603,7 +617,8 @@ func (rf *Raft) updateFollowerLogs(server int) bool {
 
 	}
 	//Return if the server is still responding. 
-	return msg_received
+	returnedTerm = reply.Term
+	return msg_received, returnedTerm
 }
 
 // Go routine that runs in background committing entries when possible. 
@@ -627,7 +642,7 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
 				msgOut.Index = rf.lastApplied
 				msgOut.Command = rf.log[rf.lastApplied-1].Command
 				applyCh <- msgOut
-				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, log => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.commitIndex, rf.log)
+				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, msgSent => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.commitIndex, msgOut)
 			}
 			rf.mu.Unlock()
 
@@ -637,10 +652,13 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
 }
 
 // Everytime a follower returns successfully from a Append Entries Routine, check if leader can commit additional log entries. 
-func (rf *Raft) checkCommitStatus() {
+//
+func (rf *Raft) checkCommitStatus(reply *AppendEntriesReply) {
 
 	// Protocol: Only the leader can decide when it's safe to apply a command to the state machine. 
-	if (rf.myState == Leader) {
+	// Note: Technically, we do not need to check that term at this point since the checkCommitStatus function
+	// is enclosed in a mutual exclusion lock. So, the term should not have been able to change. 
+	if (rf.myState == Leader) && (rf.currentTerm == reply.Term) {
 
 		var tempCommitIndex int = 0
 
@@ -712,6 +730,7 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 
 		if (rf.myState == Leader)  {
 			//Transition from Leader to Follower: reset electionTimer
+			rf.dPrintf1("Server%d Stop Being a Leader from RequestVote Method \n %s \n", rf.me, debug_break)
 			rf.myState = Follower
 			rf.electionTimer.Reset(getElectionTimeout())
 			rf.heartbeatTimer.Stop()
@@ -724,6 +743,7 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	// Protocol: Start protocl discussed in Figure 2 (receiver implementation)
 	// Protocol: If the sender has a smaller term, reject the RPC immediately. 
 	if (args.Term < rf.currentTerm) {
+		rf.dPrintf1("Server%d, Term%d, Action: Server denies vote to Server%d \n",rf.me, rf.currentTerm, args.CandidateId)
 		reply.VoteGranted = false
 	// Protocol: Determine if this server should vote for the candidate given that the candidate is in an equal or higher term. 
 	// Only grant vote if: 1) candidate's log is at least as up-to-date as receiver's log and 2) this server hasn't voted for somebody else.
@@ -732,6 +752,10 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 
 		if (args.Term != rf.currentTerm) {
 			rf.error("Error: Server is voting, but is not in the same term as candidate.\n");
+		}
+
+		if (rf.votedFor == args.CandidateId) {
+			rf.error("Error: Voting related issue. This seems not to be possible. \n");
 		}
 
 		//Setup variables
@@ -749,6 +773,7 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 		// Determine if this server can vote for candidate: Vote when candidate has larger log term
 		// Protocol: Reset the election timer when granting a vote. 
 		if (allowedToVote) && (args.LastLogTerm > thisLastLogTerm) {
+			rf.dPrintf1("Server%d, Term%d, Action: Server votes for Server%d \n",rf.me, rf.currentTerm, args.CandidateId)
 			reply.VoteGranted = true
 			rf.votedFor = args.CandidateId
 			rf.persist()
@@ -756,12 +781,14 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 		// Determine if this server can vote for canddiate: When candidates's log term is equal, look at index
 		// Protocol: Reset the election timer when granting a vote. 
 		} else if (allowedToVote) && (args.LastLogTerm == thisLastLogTerm) && (args.LastLogIndex >= thisLastLogIndex) {
+			rf.dPrintf1("Server%d, Term%d, Action: Server votes for Server%d \n",rf.me, rf.currentTerm, args.CandidateId)
 			reply.VoteGranted = true
 			rf.votedFor = args.CandidateId
 			rf.persist()
 			rf.electionTimer.Reset(getElectionTimeout())
 		// If the above statements are not met, don't vote for this candidate.  
 		} else {
+			rf.dPrintf1("Server%d, Term%d, Action: Server denies vote to Server%d \n",rf.me, rf.currentTerm, args.CandidateId)
 			reply.VoteGranted = false
 		}
 	}
@@ -814,8 +841,10 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 	  	defer rf.mu.Unlock()
 
 
-		// Only can process data in reply if the RPC was delivered
-		if(ok && (rf.myState == Candidate)) {
+		// Critical: These state checks (to make sure the servers state has not changed) need to be made 
+		// here since 1) we just recieved the lock (so other threads could be running in between), 
+		// and 2) we will use this data to make permenant state changes to our system. 
+		if(ok && (rf.myState == Candidate) && (rf.currentTerm == reply.Term)) {
 			// Protocol: As always, if this server's term is lagging, update the term. 
 			// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
 			if (reply.Term > rf.currentTerm) {
@@ -826,7 +855,7 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 				if (rf.myState == Leader)  {
 					//Transition from Leader to Follower: reset electionTimer
 					rf.myState = Follower
-					rf.dPrintf1("Server%d Stop Being a Leader\n", rf.me)
+					rf.dPrintf1("Server%d Stop Being a Leader from sendRequestVote Method \n %s \n", rf.me, debug_break)
 					rf.electionTimer.Reset(getElectionTimeout())
 					rf.heartbeatTimer.Stop()
 				} else if (rf.myState == Candidate) {
@@ -895,7 +924,7 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 			if (rf.myState == Leader)  {
 				//Transition from Leader to Follower: reset electionTimer
 				rf.myState = Follower
-				rf.dPrintf1("Server%d Stop Being a Leader\n", rf.me)
+				rf.dPrintf1("Server%d Stop Being a Leader from AppendEntries Method \n %s \n", rf.me, debug_break)
 				rf.electionTimer.Reset(getElectionTimeout())
 				rf.heartbeatTimer.Stop()
 			} else if (rf.myState == Candidate) {
@@ -923,7 +952,6 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 	}
 
 	reply.Term = rf.currentTerm
-	//rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Method AppendEntries Prcoessed, Reply => (%+v) \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), reply)
 
 }
 
@@ -937,7 +965,7 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 
 	// ToDo: Remove comment since this comment might not be the real state of the system when we actually send the RPC. 
 	rf.mu.Lock()
-	rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Leader send AppendEntry RPC  to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), server, args)
+	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Leader send AppendEntry RPC  to Server%d \n" ,rf.me, rf.currentTerm, rf.stateToString(), server)
 	rf.mu.Unlock()
 
 
@@ -965,7 +993,7 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 	  	defer rf.mu.Unlock()
 	  	
 
-		if(ok && rf.myState == Leader) {
+		if(ok && (rf.myState == Leader) && (rf.currentTerm == reply.Term)) {
 			// Protocol: As always, if this server's term is lagging, update the term. 
 			// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
 			if (reply.Term > rf.currentTerm) {
@@ -974,7 +1002,7 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 				rf.persist()
 
 				if (rf.myState == Leader)  {
-					rf.dPrintf1("Server%d Stop Being a Leader\n", rf.me)
+					rf.dPrintf1("Server%d Stop Being a Leader from sendAppendEntries method\n %s \n", rf.me, debug_break)
 					//Transition from Leader to Follower: reset electionTimer
 					rf.myState = Follower
 					rf.electionTimer.Reset(getElectionTimeout())
@@ -1029,7 +1057,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 			Term: rf.currentTerm, 
 			Command: command}
 
-		rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: LEADER RECEIVED NEW START(), New Log Entry => (%v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), newLog)
+		rf.dPrintf1("%s \n Server%d, Term%d, State: %s, Action: LEADER RECEIVED NEW START(), New Log Entry => (%v) \n" ,  debug_break, rf.me, rf.currentTerm, rf.stateToString(), newLog)
 
 
 		rf.log = append(rf.log, newLog)
@@ -1060,6 +1088,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 // turn off debug output from this instance.
 //
 func (rf *Raft) Kill() {
+	rf.dPrintf1("Server%d, Term%d, State: %s, Action: SERVER Dies \n %s \n" ,  rf.me, rf.currentTerm, rf.stateToString(), debug_break)
 	close(rf.shutdownChan)
 	close(rf.serviceClientChan)
 	rf.heartbeatTimer.Stop()

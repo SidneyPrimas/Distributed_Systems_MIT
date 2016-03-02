@@ -1,0 +1,40 @@
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.145s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.148s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.150s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.154s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.150s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.204s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.149s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.322s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.151s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.147s

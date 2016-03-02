@@ -1,0 +1,40 @@
+Test: rejoin of partitioned leader ...
+  ... Passed
+PASS
+ok  	raft	3.468s
+Test: rejoin of partitioned leader ...
+  ... Passed
+PASS
+ok  	raft	3.469s
+Test: rejoin of partitioned leader ...
+  ... Passed
+PASS
+ok  	raft	5.449s
+Test: rejoin of partitioned leader ...
+  ... Passed
+PASS
+ok  	raft	3.448s
+Test: rejoin of partitioned leader ...
+  ... Passed
+PASS
+ok  	raft	3.485s
+Test: rejoin of partitioned leader ...
+  ... Passed
+PASS
+ok  	raft	3.562s
+Test: rejoin of partitioned leader ...
+  ... Passed
+PASS
+ok  	raft	5.495s
+Test: rejoin of partitioned leader ...
+  ... Passed
+PASS
+ok  	raft	3.538s
+Test: rejoin of partitioned leader ...
+  ... Passed
+PASS
+ok  	raft	3.459s
+Test: rejoin of partitioned leader ...
+  ... Passed
+PASS
+ok  	raft	3.432s

@@ -1,0 +1,40 @@
+Test: agreement despite follower failure ...
+  ... Passed
+PASS
+ok  	raft	3.269s
+Test: agreement despite follower failure ...
+  ... Passed
+PASS
+ok  	raft	3.306s
+Test: agreement despite follower failure ...
+  ... Passed
+PASS
+ok  	raft	3.307s
+Test: agreement despite follower failure ...
+  ... Passed
+PASS
+ok  	raft	5.195s
+Test: agreement despite follower failure ...
+  ... Passed
+PASS
+ok  	raft	5.139s
+Test: agreement despite follower failure ...
+  ... Passed
+PASS
+ok  	raft	3.304s
+Test: agreement despite follower failure ...
+  ... Passed
+PASS
+ok  	raft	3.345s
+Test: agreement despite follower failure ...
+  ... Passed
+PASS
+ok  	raft	3.390s
+Test: agreement despite follower failure ...
+  ... Passed
+PASS
+ok  	raft	3.307s
+Test: agreement despite follower failure ...
+  ... Passed
+PASS
+ok  	raft	3.280s

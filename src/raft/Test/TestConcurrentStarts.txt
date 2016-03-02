@@ -1,0 +1,40 @@
+Test: concurrent Start()s ...
+  ... Passed
+PASS
+ok  	raft	0.539s
+Test: concurrent Start()s ...
+  ... Passed
+PASS
+ok  	raft	0.663s
+Test: concurrent Start()s ...
+  ... Passed
+PASS
+ok  	raft	0.580s
+Test: concurrent Start()s ...
+  ... Passed
+PASS
+ok  	raft	0.579s
+Test: concurrent Start()s ...
+  ... Passed
+PASS
+ok  	raft	0.580s
+Test: concurrent Start()s ...
+  ... Passed
+PASS
+ok  	raft	0.579s
+Test: concurrent Start()s ...
+  ... Passed
+PASS
+ok  	raft	0.579s
+Test: concurrent Start()s ...
+  ... Passed
+PASS
+ok  	raft	0.578s
+Test: concurrent Start()s ...
+  ... Passed
+PASS
+ok  	raft	0.611s
+Test: concurrent Start()s ...
+  ... Passed
+PASS
+ok  	raft	0.661s

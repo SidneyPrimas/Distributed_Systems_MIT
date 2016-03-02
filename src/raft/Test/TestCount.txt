@@ -1,0 +1,40 @@
+Test: RPC counts aren't too high ...
+  ... Passed
+PASS
+ok  	raft	1.580s
+Test: RPC counts aren't too high ...
+  ... Passed
+PASS
+ok  	raft	1.585s
+Test: RPC counts aren't too high ...
+  ... Passed
+PASS
+ok  	raft	1.581s
+Test: RPC counts aren't too high ...
+  ... Passed
+PASS
+ok  	raft	1.583s
+Test: RPC counts aren't too high ...
+  ... Passed
+PASS
+ok  	raft	1.541s
+Test: RPC counts aren't too high ...
+  ... Passed
+PASS
+ok  	raft	1.583s
+Test: RPC counts aren't too high ...
+  ... Passed
+PASS
+ok  	raft	1.541s
+Test: RPC counts aren't too high ...
+  ... Passed
+PASS
+ok  	raft	1.582s
+Test: RPC counts aren't too high ...
+  ... Passed
+PASS
+ok  	raft	1.538s
+Test: RPC counts aren't too high ...
+  ... Passed
+PASS
+ok  	raft	1.580s
