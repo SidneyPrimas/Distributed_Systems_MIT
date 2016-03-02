@@ -832,7 +832,7 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 	//Allows for RPC Timeout
 	var ok bool = false
 	select {
-	case <-time.After(time.Millisecond * 300):
+	case <-time.After(time.Millisecond * 100):
 	  	ok = false
 	case ok = <-RPC_returned:
 	
@@ -984,7 +984,7 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 	//Allows for RPC Timeout
 	var ok bool = false
 	select {
-	case <-time.After(time.Millisecond * 300):
+	case <-time.After(time.Millisecond * 100):
 	  	ok = false
 	case ok = <-RPC_returned:
 		

@@ -49,3 +49,67 @@ FAIL
 exit status 1
 FAIL	raft	43.346s
 Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	29.546s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	38.255s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	33.610s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	37.057s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	30.637s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	37.696s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	33.704s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	35.581s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	37.986s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	37.190s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	35.671s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	35.866s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	41.175s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	33.954s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	31.499s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	35.172s
+Test: Figure 8 (unreliable) ...
