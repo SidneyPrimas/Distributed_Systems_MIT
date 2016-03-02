@@ -832,7 +832,7 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 	//Allows for RPC Timeout
 	var ok bool = false
 	select {
-	case <-time.After(time.Millisecond * 100):
+	case <-time.After(time.Millisecond * 50):
 	  	ok = false
 	case ok = <-RPC_returned:
 	
@@ -984,7 +984,7 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 	//Allows for RPC Timeout
 	var ok bool = false
 	select {
-	case <-time.After(time.Millisecond * 100):
+	case <-time.After(time.Millisecond * 50):
 	  	ok = false
 	case ok = <-RPC_returned:
 		
@@ -1125,7 +1125,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.commitIndex = 0
 	rf.lastApplied = 0
 
-	rf.heartbeat_len = 40
+	rf.heartbeat_len = 50
 	//Determine votes needed for a majority. (Use implicit truncation of integers in divsion to get correct result)
 	rf.majority = 1 + len(rf.peers)/2
 	// Protocol: Initialize all new servers (initializes for the first time or after crash) in a follower state. 
@@ -1174,7 +1174,7 @@ func getElectionTimeout() time.Duration {
 	randSource := rand.NewSource(time.Now().UnixNano())
     r := rand.New(randSource)
 	// Create random number between 150 and 300
-	seedTime := (r.Float32() * float32(80)) + float32(50)
+	seedTime := (r.Float32() * float32(100)) + float32(150)
 	newElectionTimeout := time.Duration(seedTime) * time.Millisecond
 	return newElectionTimeout
 
