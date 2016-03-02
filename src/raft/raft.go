@@ -511,7 +511,7 @@ func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs, reply *AppendE
 		// Protocol: Update on the entries that have been comitted. At this point, rf.log should be up to date. 
 		if (args.LeaderCommit > rf.commitIndex) {
 			// Protocol: Use the minimum between leaderCommit and current Log's max index since 
-			// there is no way to commit entires that are not in log. 
+			// there is no way to commit entries that are not in log. 
 			rf.commitIndex = int(math.Min(float64(args.LeaderCommit), float64(len(rf.log))))
 			if (rf.commitIndex != args.LeaderCommit) {
 				rf.error("Error: Claimed to have updated the full log of a follower, but didn't \n")
@@ -832,7 +832,7 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 	//Allows for RPC Timeout
 	var ok bool = false
 	select {
-	case <-time.After(time.Second * 2):
+	case <-time.After(time.Millisecond * 300):
 	  	ok = false
 	case ok = <-RPC_returned:
 	
@@ -984,7 +984,7 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 	//Allows for RPC Timeout
 	var ok bool = false
 	select {
-	case <-time.After(time.Second * 2):
+	case <-time.After(time.Millisecond * 300):
 	  	ok = false
 	case ok = <-RPC_returned:
 		

@@ -1,0 +1,51 @@
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	37.165s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	33.379s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	38.252s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	35.892s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	29.562s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	39.054s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	38.972s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	35.804s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	36.946s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	35.567s
+Test: Figure 8 (unreliable) ...
+  ... Passed
+PASS
+ok  	raft	36.081s
+Test: Figure 8 (unreliable) ...
+--- FAIL: TestFigure8Unreliable (43.33s)
+	config.go:408: one(4515) failed to reach agreement
+FAIL
+exit status 1
+FAIL	raft	43.346s
+Test: Figure 8 (unreliable) ...
