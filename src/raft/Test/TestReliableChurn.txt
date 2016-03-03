@@ -1,7 +1,107 @@
 Test: churn ...
   ... Passed
 PASS
-ok  	raft	16.175s
+ok  	raft	16.397s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.158s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.396s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.174s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.393s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.245s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.220s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.252s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.269s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.207s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.191s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.393s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.153s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.130s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.194s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.201s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.501s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.402s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.186s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.191s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.290s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.195s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.155s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.176s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.396s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.391s
 Test: churn ...
   ... Passed
 PASS
@@ -9,15 +109,19 @@ ok  	raft	16.162s
 Test: churn ...
   ... Passed
 PASS
-ok  	raft	16.337s
+ok  	raft	16.296s
 Test: churn ...
   ... Passed
 PASS
-ok  	raft	16.154s
+ok  	raft	16.490s
 Test: churn ...
   ... Passed
 PASS
-ok  	raft	16.367s
+ok  	raft	16.138s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.155s
 Test: churn ...
   ... Passed
 PASS
@@ -25,16 +129,112 @@ ok  	raft	16.141s
 Test: churn ...
   ... Passed
 PASS
-ok  	raft	16.095s
+ok  	raft	16.204s
 Test: churn ...
   ... Passed
 PASS
-ok  	raft	16.133s
+ok  	raft	16.210s
 Test: churn ...
   ... Passed
 PASS
-ok  	raft	16.353s
+ok  	raft	16.169s
 Test: churn ...
   ... Passed
 PASS
-ok  	raft	16.117s
+ok  	raft	16.203s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.195s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.182s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.362s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.199s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.159s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.370s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.153s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.184s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.206s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.194s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.209s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.184s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.161s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.221s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.237s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.268s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.177s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.144s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.140s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.199s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.215s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.150s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.243s
+Test: churn ...
+  ... Passed
+PASS
+ok  	raft	16.144s

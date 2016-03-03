@@ -1,40 +1,240 @@
 Test: no agreement if too many followers fail ...
   ... Passed
 PASS
-ok  	raft	3.256s
+ok  	raft	3.403s
 Test: no agreement if too many followers fail ...
   ... Passed
 PASS
-ok  	raft	3.276s
+ok  	raft	3.431s
 Test: no agreement if too many followers fail ...
   ... Passed
 PASS
-ok  	raft	3.235s
+ok  	raft	3.429s
 Test: no agreement if too many followers fail ...
   ... Passed
 PASS
-ok  	raft	3.237s
+ok  	raft	3.403s
 Test: no agreement if too many followers fail ...
   ... Passed
 PASS
-ok  	raft	3.256s
+ok  	raft	3.401s
 Test: no agreement if too many followers fail ...
   ... Passed
 PASS
-ok  	raft	3.253s
+ok  	raft	3.398s
 Test: no agreement if too many followers fail ...
   ... Passed
 PASS
-ok  	raft	3.253s
+ok  	raft	3.403s
 Test: no agreement if too many followers fail ...
   ... Passed
 PASS
-ok  	raft	3.254s
+ok  	raft	3.399s
 Test: no agreement if too many followers fail ...
   ... Passed
 PASS
-ok  	raft	3.255s
+ok  	raft	3.399s
 Test: no agreement if too many followers fail ...
   ... Passed
 PASS
-ok  	raft	3.258s
+ok  	raft	3.401s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.351s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.403s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.398s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.401s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.399s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.402s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.398s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.400s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.400s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.399s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.402s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.400s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.400s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.401s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.396s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.400s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.404s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.402s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.400s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.402s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.399s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.400s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.401s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.398s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.397s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.398s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.402s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.399s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.404s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.401s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.401s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.402s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.402s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.401s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.402s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.401s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.400s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.401s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.402s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.400s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.404s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.400s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.400s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.402s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.350s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.401s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.418s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.402s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.350s
+Test: no agreement if too many followers fail ...
+  ... Passed
+PASS
+ok  	raft	3.402s

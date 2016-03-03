@@ -1,0 +1,1401 @@
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.50s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.69s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (5.68s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.75s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.57s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.88s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.38s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.32s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (29.91s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.93s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (33.29s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.19s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.14s)
+PASS
+ok  	raft	156.227s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.50s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (5.30s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.41s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (3.74s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.48s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.57s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.88s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.23s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.28s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (35.93s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.81s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (29.63s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.16s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.24s)
+PASS
+ok  	raft	157.775s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.51s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.52s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.62s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.51s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (3.70s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (14.82s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.57s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.94s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.20s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.33s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (30.41s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.80s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (33.14s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.19s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.21s)
+PASS
+ok  	raft	152.387s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.50s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.56s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (5.73s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.66s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.57s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.88s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.18s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.28s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (35.84s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.81s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (31.77s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.49s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.15s)
+PASS
+ok  	raft	160.423s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.50s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.65s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (3.75s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+Test: churn ...
+  ... Passed
+--- PASS: TestBackup (16.67s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.57s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.88s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.18s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.28s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (37.65s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.81s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (32.42s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.18s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.32s)
+PASS
+ok  	raft	160.867s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.50s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.65s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (3.74s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (14.89s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.57s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.93s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.15s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.28s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (31.42s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.80s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (38.50s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.16s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.16s)
+PASS
+ok  	raft	158.781s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.50s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.75s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.51s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (5.69s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.73s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.51s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.88s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.02s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.28s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (32.10s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.79s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (30.40s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.24s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.18s)
+PASS
+ok  	raft	155.004s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.51s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.59s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (3.73s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.59s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.57s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.90s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.19s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.28s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (33.96s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.79s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (34.74s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.18s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.17s)
+PASS
+ok  	raft	159.192s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.51s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.69s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (5.76s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.60s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.51s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.95s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.40s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.27s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (35.16s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (3.00s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (35.52s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.39s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.22s)
+PASS
+ok  	raft	163.979s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.50s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.70s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.41s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (3.74s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.64s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.57s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.94s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.23s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.28s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (34.79s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.79s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (36.11s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.36s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.18s)
+PASS
+ok  	raft	161.837s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.51s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.66s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (3.73s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.64s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.57s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.88s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.15s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.27s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (30.58s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.79s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (38.25s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.18s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.18s)
+PASS
+ok  	raft	159.410s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.51s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.69s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (5.70s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.67s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.57s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.84s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.13s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.28s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (35.43s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.93s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (36.36s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.17s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.18s)
+PASS
+ok  	raft	164.442s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.50s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (5.35s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (5.66s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.64s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.51s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.90s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.15s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.33s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (29.92s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.80s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (36.25s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.15s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.39s)
+PASS
+ok  	raft	160.539s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.50s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.68s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (5.85s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.64s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.57s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.86s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.20s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.27s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (28.17s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.95s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (30.45s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.35s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.17s)
+PASS
+ok  	raft	151.674s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.50s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.58s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (5.71s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (14.92s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.51s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.83s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.16s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.32s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (34.34s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.79s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (34.90s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.22s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.29s)
+PASS
+ok  	raft	160.095s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.51s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (5.37s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (3.78s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (14.93s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.57s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.98s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.37s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.27s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (32.41s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (3.00s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (36.41s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.16s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.17s)
+PASS
+ok  	raft	159.915s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.50s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (3.69s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.39s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (3.69s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.64s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.51s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.88s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.19s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.27s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (27.50s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.79s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (35.19s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.17s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.14s)
+PASS
+ok  	raft	153.170s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.51s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (5.29s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.42s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (5.92s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (14.97s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.57s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.86s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.59s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.58s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (31.21s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.97s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (35.59s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.16s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.26s)
+PASS
+ok  	raft	160.496s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.51s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.52s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (5.31s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.41s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (3.67s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.54s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.58s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.89s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.44s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.28s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (31.07s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.80s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (37.46s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.17s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.16s)
+PASS
+ok  	raft	160.909s
+=== RUN   TestInitialElection
+Test: initial election ...
+  ... Passed
+--- PASS: TestInitialElection (2.50s)
+=== RUN   TestReElection
+Test: election after network failure ...
+  ... Passed
+--- PASS: TestReElection (4.51s)
+=== RUN   TestBasicAgree
+Test: basic agreement ...
+  ... Passed
+--- PASS: TestBasicAgree (0.51s)
+=== RUN   TestFailAgree
+Test: agreement despite follower failure ...
+  ... Passed
+--- PASS: TestFailAgree (5.33s)
+=== RUN   TestFailNoAgree
+Test: no agreement if too many followers fail ...
+  ... Passed
+--- PASS: TestFailNoAgree (3.42s)
+=== RUN   TestConcurrentStarts
+Test: concurrent Start()s ...
+  ... Passed
+--- PASS: TestConcurrentStarts (0.57s)
+=== RUN   TestRejoin
+Test: rejoin of partitioned leader ...
+  ... Passed
+--- PASS: TestRejoin (3.71s)
+=== RUN   TestBackup
+Test: leader backs up quickly over incorrect follower logs ...
+  ... Passed
+--- PASS: TestBackup (16.82s)
+=== RUN   TestCount
+Test: RPC counts aren't too high ...
+  ... Passed
+--- PASS: TestCount (1.51s)
+=== RUN   TestPersist1
+Test: basic persistence ...
+  ... Passed
+--- PASS: TestPersist1 (2.89s)
+=== RUN   TestPersist2
+Test: more persistence ...
+  ... Passed
+--- PASS: TestPersist2 (14.51s)
+=== RUN   TestPersist3
+Test: partitioned leader and one follower crash, leader restarts ...
+  ... Passed
+--- PASS: TestPersist3 (1.29s)
+=== RUN   TestFigure8
+Test: Figure 8 ...
+  ... Passed
+--- PASS: TestFigure8 (34.05s)
+=== RUN   TestUnreliableAgree
+Test: unreliable agreement ...
+  ... Passed
+--- PASS: TestUnreliableAgree (2.95s)
+=== RUN   TestFigure8Unreliable
+Test: Figure 8 (unreliable) ...
+  ... Passed
+--- PASS: TestFigure8Unreliable (34.95s)
+=== RUN   TestReliableChurn
+Test: churn ...
+  ... Passed
+--- PASS: TestReliableChurn (16.14s)
+=== RUN   TestUnreliableChurn
+Test: unreliable churn ...
+  ... Passed
+--- PASS: TestUnreliableChurn (16.12s)
+PASS
+ok  	raft	161.802s

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-for run in {1..3}
+mkdir -p TestReliableChurn
+for i in {101..130}
 do
-  go test -test.v >> ./Test/all_tests_final.txt
+  go test -run TestReliableChurn >> ./TestReliableChurn/TestReliableChurn_final${i}.txt
 done

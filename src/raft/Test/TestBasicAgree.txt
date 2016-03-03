@@ -1,40 +1,240 @@
 Test: basic agreement ...
   ... Passed
 PASS
-ok  	raft	0.336s
+ok  	raft	0.524s
 Test: basic agreement ...
   ... Passed
 PASS
-ok  	raft	0.335s
+ok  	raft	0.519s
 Test: basic agreement ...
   ... Passed
 PASS
-ok  	raft	0.337s
+ok  	raft	0.524s
 Test: basic agreement ...
   ... Passed
 PASS
-ok  	raft	0.334s
+ok  	raft	0.523s
 Test: basic agreement ...
   ... Passed
 PASS
-ok  	raft	0.335s
+ok  	raft	0.518s
 Test: basic agreement ...
   ... Passed
 PASS
-ok  	raft	0.332s
+ok  	raft	0.519s
 Test: basic agreement ...
   ... Passed
 PASS
-ok  	raft	0.332s
+ok  	raft	0.522s
 Test: basic agreement ...
   ... Passed
 PASS
-ok  	raft	0.334s
+ok  	raft	0.523s
 Test: basic agreement ...
   ... Passed
 PASS
-ok  	raft	0.336s
+ok  	raft	0.524s
 Test: basic agreement ...
   ... Passed
 PASS
-ok  	raft	0.335s
+ok  	raft	0.520s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.519s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.519s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.521s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.526s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.525s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.527s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.521s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.520s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.523s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.521s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.523s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.523s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.523s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.523s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.520s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.523s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.525s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.526s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.523s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.518s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.520s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.524s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.524s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.525s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.523s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.521s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.524s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.520s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.519s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.519s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.523s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.521s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.523s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.522s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.520s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.520s
+Test: basic agreement ...
+  ... Passed
+PASS
+ok  	raft	0.520s

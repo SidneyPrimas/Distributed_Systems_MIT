@@ -426,7 +426,7 @@ func (rf *Raft) getVotes(server int)  (myvoteGranted bool, msg_received bool, re
 // Logic to update the log of the follower
 func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs, reply *AppendEntriesReply)  {
 
-	rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Append RPC Request, args => %v, rf.Log => %v , Entries => %v \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(),  args, rf.log, args.Entries)
+	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Append RPC Request, args => %v, rf.Log => %v  \n", rf.me, rf.currentTerm, rf.stateToString(),  args, rf.log)
 
 
 
@@ -832,7 +832,7 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 	//Allows for RPC Timeout
 	var ok bool = false
 	select {
-	case <-time.After(time.Millisecond * 50):
+	case <-time.After(time.Millisecond * 100):
 	  	ok = false
 	case ok = <-RPC_returned:
 	
@@ -984,7 +984,7 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 	//Allows for RPC Timeout
 	var ok bool = false
 	select {
-	case <-time.After(time.Millisecond * 50):
+	case <-time.After(time.Millisecond * 100):
 	  	ok = false
 	case ok = <-RPC_returned:
 		
@@ -1088,9 +1088,16 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 // turn off debug output from this instance.
 //
 func (rf *Raft) Kill() {
+	rf.mu.Lock()
+	defer rf.mu.Unlock()
+
 	rf.dPrintf1("Server%d, Term%d, State: %s, Action: SERVER Dies \n %s \n" ,  rf.me, rf.currentTerm, rf.stateToString(), debug_break)
 	close(rf.shutdownChan)
-	close(rf.serviceClientChan)
+	// Note: Don't need to close this channel. The channel will be garbage collected when it's no longer used. 
+	// Closing a channel is a control signal, and so we don't need to close this channel. 
+	// Note: With the locking implemented, we technically can close the channel. Since this code will run synchronously with any thread
+	// that checks serviceClientChan. And, once this function is finished running, the test is successful. 
+	// close(rf.serviceClientChan)
 	rf.heartbeatTimer.Stop()
 	rf.electionTimer.Stop()
 
@@ -1174,7 +1181,7 @@ func getElectionTimeout() time.Duration {
 	randSource := rand.NewSource(time.Now().UnixNano())
     r := rand.New(randSource)
 	// Create random number between 150 and 300
-	seedTime := (r.Float32() * float32(100)) + float32(150)
+	seedTime := (r.Float32() * float32(60)) + float32(150)
 	newElectionTimeout := time.Duration(seedTime) * time.Millisecond
 	return newElectionTimeout
 

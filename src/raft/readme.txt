@@ -21,6 +21,10 @@ Future Improvements:
 Questions: 
 + What is a good approach/strategy for using logs? (using actual logs, formatting of logs, showing color, etc)
 + I often see null characters when I print to a file. How do I fix this
++ Currently sending my full log. Will that cause problems later on? 
++ Better way to switch states
++ Locking question
++ Buffinger incoming client requests???? Is this an issue? 
 
 
 ******************* Description of Protocol *******************

@@ -1,500 +1,240 @@
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	39.932s
+ok  	raft	36.966s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	33.102s
+ok  	raft	33.279s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	33.850s
+ok  	raft	31.763s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	33.328s
+ok  	raft	30.679s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	35.804s
+ok  	raft	37.004s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	35.272s
+ok  	raft	36.244s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	39.842s
+ok  	raft	35.346s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	39.687s
+ok  	raft	32.582s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	32.704s
+ok  	raft	464.696s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	35.804s
+ok  	raft	27.991s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	34.317s
+ok  	raft	31.911s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	33.181s
+ok  	raft	35.488s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	28.959s
+ok  	raft	30.894s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	35.873s
+ok  	raft	35.067s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	40.466s
+ok  	raft	36.315s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	33.488s
+ok  	raft	37.024s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	34.078s
+ok  	raft	33.935s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	34.129s
+ok  	raft	38.632s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	35.164s
+ok  	raft	35.393s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	32.476s
+ok  	raft	32.206s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	35.619s
+ok  	raft	36.446s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	31.955s
+ok  	raft	37.569s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	41.975s
+ok  	raft	155.041s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	36.340s
+ok  	raft	33.517s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	32.643s
+ok  	raft	32.533s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	34.210s
+ok  	raft	36.199s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	36.275s
+ok  	raft	36.853s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	37.087s
+ok  	raft	32.039s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	33.480s
+ok  	raft	32.829s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	36.836s
+ok  	raft	33.861s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	30.771s
+ok  	raft	32.716s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	41.831s
+ok  	raft	35.686s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	34.040s
+ok  	raft	34.380s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	39.256s
+ok  	raft	221.391s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	41.126s
+ok  	raft	31.951s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	36.653s
+ok  	raft	33.928s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	37.956s
+ok  	raft	34.787s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	35.322s
+ok  	raft	32.219s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	32.819s
+ok  	raft	36.260s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	39.762s
+ok  	raft	37.522s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	37.741s
+ok  	raft	34.230s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	35.385s
+ok  	raft	29.507s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	34.314s
+ok  	raft	31.520s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	33.164s
+ok  	raft	507.931s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	28.727s
+ok  	raft	34.999s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	39.118s
+ok  	raft	35.793s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	38.223s
+ok  	raft	34.571s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	34.337s
+ok  	raft	33.813s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	29.267s
+ok  	raft	36.869s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	36.491s
+ok  	raft	32.948s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	33.937s
+ok  	raft	42.069s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	36.189s
+ok  	raft	32.164s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	42.971s
+ok  	raft	34.898s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	30.635s
+ok  	raft	29.790s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	29.335s
+ok  	raft	37.750s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	37.966s
+ok  	raft	34.790s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	39.149s
+ok  	raft	38.442s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	39.003s
+ok  	raft	38.896s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	34.998s
+ok  	raft	33.502s
 Test: Figure 8 (unreliable) ...
   ... Passed
 PASS
-ok  	raft	33.876s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	40.363s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	34.046s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	28.368s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	33.623s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	32.626s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	37.790s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	40.203s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	35.496s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	42.693s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	37.515s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	34.570s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.703s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.809s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	37.232s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	28.985s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	35.162s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	34.641s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	37.067s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	34.119s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	39.521s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	33.546s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	41.776s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	32.619s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	31.254s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	39.874s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	37.224s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.449s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	37.111s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	37.892s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.920s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	37.034s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	36.825s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	35.776s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	35.835s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	32.666s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	35.462s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.686s
-Test: Figure 8 (unreliable) ...
---- FAIL: TestFigure8Unreliable (38.12s)
-	config.go:408: one(5706) failed to reach agreement
-FAIL
-exit status 1
-FAIL	raft	38.136s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.020s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.002s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.169s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	44.878s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.687s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	33.398s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	37.513s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	32.397s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	35.505s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.402s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.500s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	30.789s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	42.184s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	39.592s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	35.101s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.066s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	28.240s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	34.317s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	34.829s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	35.614s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.189s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	35.836s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	35.733s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	36.127s
-Test: Figure 8 (unreliable) ...
---- FAIL: TestFigure8Unreliable (46.83s)
-	config.go:408: one(6900) failed to reach agreement
-FAIL
-exit status 1
-FAIL	raft	46.856s
-Test: Figure 8 (unreliable) ...
-  ... Passed
-PASS
-ok  	raft	38.145s
+ok  	raft	36.273s

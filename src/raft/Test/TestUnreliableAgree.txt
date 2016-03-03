@@ -1,40 +1,240 @@
 Test: unreliable agreement ...
   ... Passed
 PASS
-ok  	raft	2.145s
+ok  	raft	2.811s
 Test: unreliable agreement ...
   ... Passed
 PASS
-ok  	raft	2.148s
+ok  	raft	2.815s
 Test: unreliable agreement ...
   ... Passed
 PASS
-ok  	raft	2.150s
+ok  	raft	2.815s
 Test: unreliable agreement ...
   ... Passed
 PASS
-ok  	raft	2.154s
+ok  	raft	2.809s
 Test: unreliable agreement ...
   ... Passed
 PASS
-ok  	raft	2.150s
+ok  	raft	2.866s
 Test: unreliable agreement ...
   ... Passed
 PASS
-ok  	raft	2.204s
+ok  	raft	2.815s
 Test: unreliable agreement ...
   ... Passed
 PASS
-ok  	raft	2.149s
+ok  	raft	2.817s
 Test: unreliable agreement ...
   ... Passed
 PASS
-ok  	raft	2.322s
+ok  	raft	2.819s
 Test: unreliable agreement ...
   ... Passed
 PASS
-ok  	raft	2.151s
+ok  	raft	3.316s
 Test: unreliable agreement ...
   ... Passed
 PASS
-ok  	raft	2.147s
+ok  	raft	2.811s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	3.373s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	3.321s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.808s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	3.472s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.816s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.816s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.816s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.814s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.817s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.814s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.817s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.811s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.807s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	3.011s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.813s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.809s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.813s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.810s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.814s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.816s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.814s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.813s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.820s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.818s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.813s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	3.118s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.811s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.815s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.970s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.813s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.808s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.817s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.811s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.811s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	3.317s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	3.323s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.815s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.813s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.811s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.802s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	3.113s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.805s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.808s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.804s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.805s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.804s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.808s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.958s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.807s
+Test: unreliable agreement ...
+  ... Passed
+PASS
+ok  	raft	2.805s
