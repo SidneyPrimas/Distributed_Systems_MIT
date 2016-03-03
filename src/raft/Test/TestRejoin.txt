@@ -115,3 +115,39 @@ Test: rejoin of partitioned leader ...
 PASS
 ok  	raft	3.742s
 Test: rejoin of partitioned leader ...
+  ... Passed
+PASS
+ok  	raft	5.726s
+Test: rejoin of partitioned leader ...
+  ... Passed
+PASS
+ok  	raft	5.806s
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]
+FAIL	raft [build failed]

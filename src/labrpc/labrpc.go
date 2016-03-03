@@ -21,7 +21,20 @@ package labrpc
 // net.Enable(endname, enabled) -- enable/disable a client.
 // net.Reliable(bool) -- false means drop/delay messages
 //
-// end.Call("Raft.AppendEntries", args, &reply) -- send an RPC, wait for reply
+// end.Call("Raft.AppendEntries", args, &reply) -- send an RPC, wait for reply.
+// the "Raft" is the name of the server struct to be called.
+// the "AppendEntries" is the name of the method to be called.
+// Call() returns true to indicate that the server executed the request
+// and the reply is valid.
+// Call() returns false if the network lost the request or reply
+// or the server is down.
+// It is OK to have multiple Call()s in progress at the same time on the
+// same ClientEnd.
+// Concurrent calls to Call() may be delivered to the server out of order,
+// since the network may re-order messages.
+// Call() is guaranteed to return (perhaps after a delay) *except* if the
+// handler function on the server side does not return. That is, there
+// is no need to implement your own timeouts around Call().
 //
 // srv := MakeServer()
 // srv.AddService(svc) -- a server can have multiple services, e.g. Raft and k/v
@@ -35,7 +48,6 @@ package labrpc
 import "encoding/gob"
 import "bytes"
 import "reflect"
-import "fmt"
 import "sync"
 import "log"
 import "strings"
@@ -43,7 +55,8 @@ import "math/rand"
 import "time"
 
 type reqMsg struct {
-	svcMeth  string // e.g. "Raft.AppendEntries"
+	endname  interface{} // name of sending ClientEnd
+	svcMeth  string      // e.g. "Raft.AppendEntries"
 	argsType reflect.Type
 	args     []byte
 	replyCh  chan replyMsg
@@ -55,7 +68,8 @@ type replyMsg struct {
 }
 
 type ClientEnd struct {
-	ch chan reqMsg
+	endname interface{} // this end-point's name
+	ch      chan reqMsg // copy of Network.endCh
 }
 
 // send an RPC, wait for the reply.
@@ -63,6 +77,7 @@ type ClientEnd struct {
 // server couldn't be contacted.
 func (e *ClientEnd) Call(svcMeth string, args interface{}, reply interface{}) bool {
 	req := reqMsg{}
+	req.endname = e.endname
 	req.svcMeth = svcMeth
 	req.argsType = reflect.TypeOf(args)
 	req.replyCh = make(chan replyMsg)
@@ -96,6 +111,7 @@ type Network struct {
 	enabled        map[interface{}]bool        // by end name
 	servers        map[interface{}]*Server     // servers, by name
 	connections    map[interface{}]interface{} // endname -> servername
+	endCh          chan reqMsg
 }
 
 func MakeNetwork() *Network {
@@ -105,6 +121,15 @@ func MakeNetwork() *Network {
 	rn.enabled = map[interface{}]bool{}
 	rn.servers = map[interface{}]*Server{}
 	rn.connections = map[interface{}](interface{}){}
+	rn.endCh = make(chan reqMsg)
+
+	// single goroutine to handle all ClientEnd.Call()s
+	go func() {
+		for xreq := range rn.endCh {
+			go rn.ProcessReq(xreq)
+		}
+	}()
+
 	return rn
 }
 
@@ -155,8 +180,9 @@ func (rn *Network) IsServerDead(endname interface{}, servername interface{}, ser
 	return false
 }
 
-func (rn *Network) ProcessReq(req reqMsg, endname interface{}) {
-	enabled, servername, server, reliable, longreordering := rn.ReadEndnameInfo(endname)
+func (rn *Network) ProcessReq(req reqMsg) {
+	enabled, servername, server, reliable, longreordering := rn.ReadEndnameInfo(req.endname)
+
 	if enabled && servername != nil && server != nil {
 		if reliable == false {
 			// short delay
@@ -191,7 +217,7 @@ func (rn *Network) ProcessReq(req reqMsg, endname interface{}) {
 			case reply = <-ech:
 				replyOK = true
 			case <-time.After(100 * time.Millisecond):
-				serverDead = rn.IsServerDead(endname, servername, server)
+				serverDead = rn.IsServerDead(req.endname, servername, server)
 			}
 		}
 
@@ -201,7 +227,7 @@ func (rn *Network) ProcessReq(req reqMsg, endname interface{}) {
 		// to an Append, but the server persisted the update
 		// into the old Persister. config.go is careful to call
 		// DeleteServer() before superseding the Persister.
-		serverDead = rn.IsServerDead(endname, servername, server)
+		serverDead = rn.IsServerDead(req.endname, servername, server)
 
 		if replyOK == false || serverDead == true {
 			// server was killed while we were waiting; return error.
@@ -246,18 +272,11 @@ func (rn *Network) MakeEnd(endname interface{}) *ClientEnd {
 	}
 
 	e := &ClientEnd{}
-	e.ch = make(chan reqMsg)
+	e.endname = endname
+	e.ch = rn.endCh
 	rn.ends[endname] = e
 	rn.enabled[endname] = false
 	rn.connections[endname] = nil
-
-	go func() {
-		for xreq := range e.ch {
-			// handle the request in a separate thread to avoid
-			// blocking subsequent RPCs from the same ClientEnd.
-			go rn.ProcessReq(xreq, endname)
-		}
-	}()
 
 	return e
 }
@@ -342,7 +361,12 @@ func (rs *Server) dispatch(req reqMsg) replyMsg {
 	if ok {
 		return service.dispatch(methodName, req)
 	} else {
-		log.Fatalf("Server.dispatch(): unknown service %v\n", serviceName)
+		choices := []string{}
+		for k, _ := range rs.services {
+			choices = append(choices, k)
+		}
+		log.Fatalf("labrpc.Server.dispatch(): unknown service %v in %v.%v; expecting one of %v\n",
+			serviceName, serviceName, methodName, choices)
 		return replyMsg{false, nil}
 	}
 }
@@ -374,16 +398,19 @@ func MakeService(rcvr interface{}) *Service {
 		mtype := method.Type
 		mname := method.Name
 
-		if method.PkgPath != "" ||
+		//fmt.Printf("%v pp %v ni %v 1k %v 2k %v no %v\n",
+		//	mname, method.PkgPath, mtype.NumIn(), mtype.In(1).Kind(), mtype.In(2).Kind(), mtype.NumOut())
+
+		if method.PkgPath != "" || // capitalized?
 			mtype.NumIn() != 3 ||
-			mtype.In(1).Kind() != reflect.Ptr ||
+			//mtype.In(1).Kind() != reflect.Ptr ||
 			mtype.In(2).Kind() != reflect.Ptr ||
-			mtype.NumOut() != 1 {
+			mtype.NumOut() != 0 {
+			// the method is not suitable for a handler
+			//fmt.Printf("bad method: %v\n", mname)
+		} else {
 			// the method looks like a handler
 			svc.methods[mname] = method
-		} else {
-			// the method is not suitable for a handler
-			fmt.Printf("bad method: %v\n", mname)
 		}
 	}
 
@@ -417,7 +444,12 @@ func (svc *Service) dispatch(methname string, req reqMsg) replyMsg {
 
 		return replyMsg{true, rb.Bytes()}
 	} else {
-		log.Fatalf("labrpc.Service.dispatch(): no method %v\n", methname)
+		choices := []string{}
+		for k, _ := range svc.methods {
+			choices = append(choices, k)
+		}
+		log.Fatalf("labrpc.Service.dispatch(): unknown method %v in %v; expecting one of %v\n",
+			methname, req.svcMeth, choices)
 		return replyMsg{false, nil}
 	}
 }
