@@ -8,31 +8,48 @@ import (
 	"sync"
 )
 
-const Debug = 0
+const debug_break = "---------------------------------------------------------------------------------------"
+const Debug = 1
 
-func DPrintf(format string, a ...interface{}) (n int, err error) {
-	if Debug > 0 {
-		log.Printf(format, a...)
-	}
-	return
-}
+// Human readable 
+type OpType int
+
+const (
+	Get 		OpType = 1
+	Put 		OpType = 2
+	Append 		OpType = 3
+)
 
 
+
+// Command structure (passed on to Raft)
 type Op struct {
 	// Your definitions here.
 	// Field names must start with capital letters,
 	// otherwise RPC will break.
+	CommandType 		OpType
+	Key 				string
+	Value 				string
+
 }
+
 
 type RaftKV struct {
 	mu      sync.Mutex
 	me      int
 	rf      *raft.Raft
-	applyCh chan raft.ApplyMsg
+
+
+	applyCh 					chan raft.ApplyMsg
+	shutdownChan				chan int
+	waitingForGetAppend_queue	map[int]chan int
+	waitingForGet_queue 		map[int]chan string 
 
 	maxraftstate int // snapshot if log grows this big
 
 	// Your definitions here.
+	// Include Key/Value data structure
+	kvMap			map[string]string
 }
 
 
@@ -40,8 +57,58 @@ func (kv *RaftKV) Get(args *GetArgs, reply *GetReply) {
 	// Your code here.
 }
 
+// Handler: RPC sender receives returned RPC once function completed. 
 func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	// Your code here.
+
+	// 1) Convert PutAppendArgs into  Op Struct
+	thisOp := Op{
+		CommandType: stringToOpType(args.Op), 
+		Key: args.Key, 
+		Value: args.Value}
+	// 2) Send Op Struct to Raft (using kv.rf.Start())
+		index, _, isLeader := kv.rf.Start(thisOp)
+	// 3) Handle Response: If Raft is not leader, return appropriate reply to client
+	if (!isLeader) {
+		DPrintf1("%s \n KVServer%d, Action: Rejected PutAppend. KVServer%d not Leader.  \n", debug_break, kv.me, kv.me)
+		// If this server is no longer the leader, return all outstanding PutAppend and Get RPCs. 
+		// Allows respective client to find another leader.
+		kv.killRPC()
+
+		reply.WrongLeader = true
+		reply.Err = OK
+
+	// 4) Handle Response: If Raft is leader, wait until raft committed Op Struct to log
+	} else if (isLeader) {
+		DPrintf1("%s \n KVServer%d, Action: Received PutAppend Request. \n", debug_break, kv.me, kv.me)
+
+		// Build channel to flag this RPC to return once respective index is committed. 
+		RPC_chan := make(chan bool)
+
+		// Add the channel to a queue of outsanding Client RPC calls (currently in Raft)
+		kv.waitingForPutAppend_queue[index] = RPC_chan
+
+		// Wait until: 1) Raft indicates that RPC is successfully committed, 2) this server discovers it's not the leader, 3) failure
+		rpcOutput := <- RPC_chan
+		DPrintf1("%s \n KVServer%d, Action: Raft and KVServer commited PutAppend Request.  \n", debug_break, kv.me, kv.me)
+
+		// Successful commit indicated by Raft: Respond to Client
+		if (rpcOutput) {
+			DPrintf1("%s \n KVServer%d, Action: Respond to Client. PutAppend request successfully comitted.  \n", debug_break, kv.me)
+			reply.WrongLeader = false
+			reply.Err = OK
+
+		// Commit Failed: If this server discovers it's not longer the leader, then tell the client to find the real leader, 
+		// and retry with the request there. 
+		} else if (!rpcOutput) {
+			DPrintf1("%s \n KVServer%d, Action: Respond to Client. PutAppend request failed after being submitted to Raft.  \n", debug_break, kv.me)
+			reply.WrongLeader = true
+			reply.Err = OK
+
+		}
+
+	}
+
 }
 
 //
@@ -52,7 +119,15 @@ func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 //
 func (kv *RaftKV) Kill() {
 	kv.rf.Kill()
-	// Your code here, if desired.
+	
+	// Kill all open go routines when this server quites. 
+	close(kv.shutdownChan)
+
+	// Since this server will no longer be leader on resstart, return all outstanding PutAppend and Get RPCs. 
+	// Allows respective client to find another leader.
+	kv.killRPC()
+
+
 }
 
 //
@@ -77,9 +152,184 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 
 	// Your initialization code here.
 
+	// Creates Queues to keep tract of outstand Client RPCs (while waiting for Raft)
+	kv.waitingForPutAppend_queue = make(map[int]chan int)
+	kv.waitingForGet_queue = make(map[int]chan bool)
+
+	// Create Key/Value Map
+	kv.kvMap := make(map[string]string)
+
+	// Makes a channel that recevies committed messages from Raft architecutre. 
 	kv.applyCh = make(chan raft.ApplyMsg)
+	// Used to shutdown go routines when service is killed. 
+	kv.shutdownChan = make(chan int)
+
+
+
+	// Initiates raft system (built as part of Lab2)
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
 
+	DPrintf1("%s \n KVServer%d, Action: New KV Server and Raft Instance Created. \n", debug_break, kv.me)
+
+	go kv.processCommits()
+
+
 	return kv
+}
+
+//********** KV Server FUNCTIONS (non-RPC) **********//
+
+func (kv *RaftKV) processCommits() {
+
+	// Go routine that loops until server is shutdown. 
+	for {
+
+		select {
+		case commitMsg := <-  kv.applyCh:
+			DPrintf2("KVServer%d, Action: Operation Received on applyCh, Operation => %v \n", kv.me, commitMsg)
+
+
+			// Execute Get Request
+			if (commitMsg.Command.CommandType == Get) {
+
+				// Exectue operation: get value
+				value, ok := kv.kvMap[commitMsg.Key]
+				// If key exists: Find the correct RPC, and tell that RPC to return the value. 
+				// If key doesn't exist: Tell RPC to return Error. 
+				kv.returnGetRPC(commitMsg, value, ok)
+			
+
+			
+			} else if (commitMsg.Command.CommandType == Put) {
+				// Exectue operation: Put Value
+				
+
+			
+			} else if (commitMsg.Command.CommandType == Append) {
+				// Exectue operation: Append Value
+
+
+
+			} else {
+				DError("Error: Operation Recieved on applyCh is neither 'Append' nor 'Put'. \n")
+			}
+
+
+			commitMsg.index
+			commitMsg.Command.Key
+
+
+		case <- kv.shutdownChan :
+			return
+
+		}
+	}
+}
+
+func (kv *RaftKV) returnGetRPC(commitMsg ApplyMsg, valueToSend string, success bool) {
+
+	//Find all open RPC that submitted this operation. Return the appropriate value. 
+	for index, RPC_chan := range(kv.waitingForGet_queue) {
+
+		if (index == commitMsg.Index) {
+
+			// Key was found in map. Return the value. 
+			if(success) {
+				RPC_chan <- valueToSend
+				delete(kv.waitingForGet_queue, i)
+				close(RPC_chan)
+
+			// Key wasn't in Map. Just close the channel. 
+			} else(!success)
+				delete(kv.waitingForGet_queue, i)
+				close(RPC_chan)
+			}
+		}
+	}
+
+}
+
+func (kv *RaftKV) returnPutAppendRPC(commitMsg ApplyMsg, success bool) {
+
+	//Find all open RPC that submitted this operation. Return the appropriate value. 
+	for index, RPC_chan := range(kv.waitingForPutAppend_queue) {
+
+		if (index == commitMsg.Index) {
+			RPC_chan <- success
+			delete(kv.waitingForPutAppend_queue, index)
+			close(RPC_chan)
+		} 
+	}
+
+}
+
+
+
+func (kv *RaftKV) killRPC() {
+	for index, RPC_chan := range(kv.waitingForPutAppend_queue) {
+		// Send false on every channel so every outstanding RPC can return, indicating client to find another leader. 
+		RPC_chan <- 0 // 0 indicates false
+		delete(kv.waitingForPutAppend_queue, index)
+		close(RPC_chan)
+	}
+
+	for index, RPC_chan := range(kv.waitingForGet_queue) {
+		delete(kv.waitingForGet_queue, index)
+		// Send false on every channel so every outstanding RPC can return, indicating client to find another leader. 
+		close(RPC_chan)
+	}
+
+}
+
+
+
+//********** UTILITY FUNCTIONS **********//
+func (operation OpType) opToString() string {
+
+	s:=""
+    if operation == 1 {
+    	s+="Get"
+   	} else if operation == 2 {
+    	s+="Put"
+   	} else if operation == 3 {
+    	s+="Append"
+   	}
+   	return s
+}
+
+func stringToOpType(op_s string) (op_type OpType) {
+
+	if (op_s == "Append") {
+		op_type = 3
+	} else if (op_s == "Put") {
+		op_type = 2
+	} else {
+		DError("Error: Client's Operation is neither 'Append' nor 'Put'. ")
+		op_type = -1
+	}
+
+	return op_type
+}
+
+
+func DPrintf2(format string, a ...interface{}) (n int, err error) {
+	if Debug >= 2 {
+		log.Printf(format, a...)
+	}
+	return
+}
+
+func DPrintf1(format string, a ...interface{}) (n int, err error) {
+	if Debug >= 1 {
+		log.Printf(format, a...)
+	}
+	return
+}
+
+func DError(format string, a ...interface{}) (n int, err error) {
+	if Debug >= 0 {
+		log.Fatalf(format, a...)
+	}
+	return
 }
