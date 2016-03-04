@@ -42,7 +42,7 @@ type RaftKV struct {
 
 	applyCh 					chan raft.ApplyMsg
 	shutdownChan				chan int
-	waitingForGetAppend_queue	map[int]chan int
+	waitingForPutAppend_queue	map[int]chan bool
 	waitingForGet_queue 		map[int]chan string 
 
 	maxraftstate int // snapshot if log grows this big
@@ -54,7 +54,7 @@ type RaftKV struct {
 
 
 func (kv *RaftKV) Get(args *GetArgs, reply *GetReply) {
-	// Your code here.
+	DPrintf1("KVServer%d, Action: GET REQUEST FROM CLIENT.  \n", kv.me)
 }
 
 // Handler: RPC sender receives returned RPC once function completed. 
@@ -70,10 +70,10 @@ func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		index, _, isLeader := kv.rf.Start(thisOp)
 	// 3) Handle Response: If Raft is not leader, return appropriate reply to client
 	if (!isLeader) {
-		DPrintf1("%s \n KVServer%d, Action: Rejected PutAppend. KVServer%d not Leader.  \n", debug_break, kv.me, kv.me)
+		DPrintf1("KVServer%d, Action: Rejected PutAppend. KVServer%d not Leader.  \n",kv.me, kv.me)
 		// If this server is no longer the leader, return all outstanding PutAppend and Get RPCs. 
 		// Allows respective client to find another leader.
-		kv.killRPC()
+		kv.killAllRPCs()
 
 		reply.WrongLeader = true
 		reply.Err = OK
@@ -125,7 +125,7 @@ func (kv *RaftKV) Kill() {
 
 	// Since this server will no longer be leader on resstart, return all outstanding PutAppend and Get RPCs. 
 	// Allows respective client to find another leader.
-	kv.killRPC()
+	kv.killAllRPCs()
 
 
 }
@@ -153,11 +153,11 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	// Your initialization code here.
 
 	// Creates Queues to keep tract of outstand Client RPCs (while waiting for Raft)
-	kv.waitingForPutAppend_queue = make(map[int]chan int)
-	kv.waitingForGet_queue = make(map[int]chan bool)
+	kv.waitingForPutAppend_queue = make(map[int]chan bool)
+	kv.waitingForGet_queue = make(map[int]chan string)
 
 	// Create Key/Value Map
-	kv.kvMap := make(map[string]string)
+	kv.kvMap = make(map[string]string)
 
 	// Makes a channel that recevies committed messages from Raft architecutre. 
 	kv.applyCh = make(chan raft.ApplyMsg)
@@ -189,35 +189,41 @@ func (kv *RaftKV) processCommits() {
 		case commitMsg := <-  kv.applyCh:
 			DPrintf2("KVServer%d, Action: Operation Received on applyCh, Operation => %v \n", kv.me, commitMsg)
 
+			// Type Assert: Package the Command from ApplyMsg into an Op Struct
+			thisCommand := commitMsg.Command.(Op)
 
 			// Execute Get Request
-			if (commitMsg.Command.CommandType == Get) {
+			if (thisCommand.CommandType == Get) {
 
 				// Exectue operation: get value
-				value, ok := kv.kvMap[commitMsg.Key]
+				value, ok := kv.kvMap[thisCommand.Key]
 				// If key exists: Find the correct RPC, and tell that RPC to return the value. 
 				// If key doesn't exist: Tell RPC to return Error. 
-				kv.returnGetRPC(commitMsg, value, ok)
+				kv.returnGetRPC(commitMsg.Index, value, ok)
 			
 
-			
-			} else if (commitMsg.Command.CommandType == Put) {
-				// Exectue operation: Put Value
+			// Execute Put Request
+			} else if (thisCommand.CommandType == Put) {
+				// Exectue operation: Replaces the value for a particular key. 
+				kv.kvMap[thisCommand.Key] = thisCommand.Value
+
+				//Return RPC to Client with correct value. 
+				kv.returnPutAppendRPC(commitMsg.Index)
 				
 
-			
-			} else if (commitMsg.Command.CommandType == Append) {
-				// Exectue operation: Append Value
+			// Execute Append Request
+			} else if (thisCommand.CommandType == Append) {
+				// Exectue operation: Appens value to a particaular key
+				kv.kvMap[thisCommand.Key] = kv.kvMap[thisCommand.Key] + thisCommand.Value
+
+				//Return RPC to Client with correct value. 
+				kv.returnPutAppendRPC(commitMsg.Index)
 
 
 
 			} else {
 				DError("Error: Operation Recieved on applyCh is neither 'Append' nor 'Put'. \n")
 			}
-
-
-			commitMsg.index
-			commitMsg.Command.Key
 
 
 		case <- kv.shutdownChan :
@@ -227,22 +233,22 @@ func (kv *RaftKV) processCommits() {
 	}
 }
 
-func (kv *RaftKV) returnGetRPC(commitMsg ApplyMsg, valueToSend string, success bool) {
+func (kv *RaftKV) returnGetRPC(indexOfCommit int, valueToSend string, success bool) {
 
 	//Find all open RPC that submitted this operation. Return the appropriate value. 
 	for index, RPC_chan := range(kv.waitingForGet_queue) {
 
-		if (index == commitMsg.Index) {
+		if (index == indexOfCommit) {
 
 			// Key was found in map. Return the value. 
 			if(success) {
 				RPC_chan <- valueToSend
-				delete(kv.waitingForGet_queue, i)
+				delete(kv.waitingForGet_queue, index)
 				close(RPC_chan)
 
 			// Key wasn't in Map. Just close the channel. 
-			} else(!success)
-				delete(kv.waitingForGet_queue, i)
+			} else if (!success) {
+				delete(kv.waitingForGet_queue, index)
 				close(RPC_chan)
 			}
 		}
@@ -250,13 +256,13 @@ func (kv *RaftKV) returnGetRPC(commitMsg ApplyMsg, valueToSend string, success b
 
 }
 
-func (kv *RaftKV) returnPutAppendRPC(commitMsg ApplyMsg, success bool) {
+func (kv *RaftKV) returnPutAppendRPC(indexOfCommit int) {
 
 	//Find all open RPC that submitted this operation. Return the appropriate value. 
 	for index, RPC_chan := range(kv.waitingForPutAppend_queue) {
 
-		if (index == commitMsg.Index) {
-			RPC_chan <- success
+		if (index == indexOfCommit) {
+			RPC_chan <- true
 			delete(kv.waitingForPutAppend_queue, index)
 			close(RPC_chan)
 		} 
@@ -266,10 +272,10 @@ func (kv *RaftKV) returnPutAppendRPC(commitMsg ApplyMsg, success bool) {
 
 
 
-func (kv *RaftKV) killRPC() {
+func (kv *RaftKV) killAllRPCs() {
 	for index, RPC_chan := range(kv.waitingForPutAppend_queue) {
 		// Send false on every channel so every outstanding RPC can return, indicating client to find another leader. 
-		RPC_chan <- 0 // 0 indicates false
+		RPC_chan <- false 
 		delete(kv.waitingForPutAppend_queue, index)
 		close(RPC_chan)
 	}
