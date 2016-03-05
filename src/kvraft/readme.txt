@@ -6,6 +6,8 @@ Question:
 + Do I need to kill all the RPCs waiting for responses from Raft? 
 + What happens if I enter two of the same client requests into Raft?
 + Will we only have one index for every Start call. Is it every possible that we get a 2nd index that is the same? 
++ Should we implement timeouts on RPCs
++ If I only have one client request at a time, think about my queue of requests!!! 
 
 ToDo: 
 + If we find out that server is not leader, we need to clean out the waitForRaft to return the RPCs to the client (indicating that this server is no longer the leader)
@@ -13,6 +15,10 @@ ToDo:
 + In Kill, make sure to close all the RPCs from the clietns that are waiting for a response.
 + When executing a command, don't execute it if it's the last command that was executed. 
 + Include random number for Op (check this to make sure command isn't committed twice). Check in KVServer or raft? 
++ Handle situation where index is not in server request log. 
++ We do not send ErrNoKey
++ Think about: I probably don't have to kill open RPCs when I am no longer leader. If I get the appropriate commit, I can return it to the client. If the client moves on, and sents do another RPC, the client will not receive this data anyway. The client will only send a new RPC if it moves on so I should not be at risk of receiving the responses twice. 
++ Think about killing RPCs if no longer leader. I don't think we need to. 
 
 Note: 
 + Returning RPCs to client with notLeader: 
