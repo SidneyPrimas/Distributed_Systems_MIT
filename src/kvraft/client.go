@@ -75,12 +75,15 @@ func (ck *Clerk) Get(key string) string {
 			// Loop around servers until find successful server. 
 			ok := ck.servers[testServer].Call("RaftKV.Get", args, reply)
 			RPC_returned <- ok
+
 			
 		}(&args, &reply)
 		// Creates artificial timeout for RPC call
 		select {
-		case <- time.After(time.Second * 7):
+		case <- time.After(time.Second * 2):
 			//Send out another RPC. 
+			ck.currentLeader = -1
+			rpcSuccess = false
 		case ok := <-RPC_returned:
 			// Only process reply if server responded. 
 			if (ok) {
@@ -152,8 +155,10 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 		}(&args, &reply)
 		// Creates artificial timeout for RPC call
 		select {
-		case <- time.After(time.Second * 7):
-			//Send out another RPC. 
+		case <- time.After(time.Second * 2):
+			//Send out another RPC. If we timeout, it's llikely because: 1) leader crashed or 2) leader cannot commit because not actually the leader.
+			ck.currentLeader = -1
+			rpcSuccess = false
 		case ok := <-RPC_returned:
 			// Success: Command successfuly committed. 
 			// Note: Will only return from server with correct leader if committed. 

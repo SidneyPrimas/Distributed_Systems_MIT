@@ -8,6 +8,7 @@ Question:
 + Will we only have one index for every Start call. Is it every possible that we get a 2nd index that is the same? 
 + Should we implement timeouts on RPCs
 + If I only have one client request at a time, think about my queue of requests!!! 
++ Why can't we lock Start()
 
 ToDo: 
 + If we find out that server is not leader, we need to clean out the waitForRaft to return the RPCs to the client (indicating that this server is no longer the leader)
@@ -19,12 +20,24 @@ ToDo:
 + We do not send ErrNoKey
 + Think about: I probably don't have to kill open RPCs when I am no longer leader. If I get the appropriate commit, I can return it to the client. If the client moves on, and sents do another RPC, the client will not receive this data anyway. The client will only send a new RPC if it moves on so I should not be at risk of receiving the responses twice. 
 + Think about killing RPCs if no longer leader. I don't think we need to. 
++ Close Open channels after RPC returned. Currently, just waiting for garbage collection. 
++ Combine checkCommitTable_beforeRaft and checkCommitTable_afterRaft => Right now they are identical
+
+Note: Need to do this: remove DErrorf for an a very, very delayed RPC. Just in case this situation happens. 
+
++ Possible issues: When client times out, but still returns? 
++ Do I kill RPCs when I am not the leader???
+
++ Put checkCommitTable_beforeRaft into a seperate function instead of integrating into Get and PutAppend
 
 Note: 
 + Returning RPCs to client with notLeader: 
 1) If the server knows it's not the leader before submitting to raft, just return false. 
 2) If the server discovers it's not the leader (after already having submitted client requests to Raft), kill those RPCs and tell the client to find the leader. My current understanding: the major reason for this is that it's safer for the client to send a request from the current leader and receive a response from the current leader. Also, if the 'wrong' leader took a command into it's log, it will most likely be over-written by a new leader. 
 3) If the server crashes, it should ideally indicate to the client that it will be a follower. 
+
+Notes: 
++ Killing RPCs: We don't need to kill RPCs once we realize we are no longer leader. Essentially, if there is a commit from applyCh, even a non-leader can return this to the client (since we know it's committed). Instead, we release RPCs if we get a commit at an index where an older RPC was sitting. If that's the case, we know that this RPC needs to be re-issued. 
 
 Clients: 
 + Clients only send one request at a time. 
@@ -33,3 +46,6 @@ Clients:
 Next: 
 1) Implement processCommits (Make a map, commit to map, respond to appropriate client through Channel)
 2) Implement Client 
+
+Current Problem: 
++ We never repsond to the client, ever. For some reason, we don't correct respond. Check the status of the RPC table. 
