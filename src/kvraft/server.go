@@ -9,7 +9,6 @@ import (
 )
 
 const debug_break = "---------------------------------------------------------------------------------------"
-const Debug = -1
 
 // Human readable 
 type OpType int
@@ -57,6 +56,7 @@ type RaftKV struct {
 	mu      sync.Mutex
 	me      int
 	rf      *raft.Raft
+	debug 	int
 
 
 	applyCh 					chan raft.ApplyMsg
@@ -92,7 +92,7 @@ func (kv *RaftKV) Get(args *GetArgs, reply *GetReply) {
 	// Note: Even if Server is not leader, respond with the information client needs for this specific request. 
 	if (inCommitTable) {
 
-		DPrintf1("KVServer%d, Action: REPEAT REQUEST. GET ALREADY APPLIED. Respond to client.   \n", kv.me)
+		kv.DPrintf1("KVServer%d, Action: REPEAT REQUEST. GET ALREADY APPLIED. Respond to client.   \n", kv.me)
 		// Note: At this point, it's unkown if this server is the leader. 
 		// However, if the server has the right information for the client, send it. 
 		reply.WrongLeader = false
@@ -116,7 +116,7 @@ func (kv *RaftKV) Get(args *GetArgs, reply *GetReply) {
 		// 3) Handle Response: If Raft is not leader, return appropriate reply to client
 		if (!isLeader) {
 
-			DPrintf2("KVServer%d, Action: Rejected GET. KVServer%d not Leader.  \n", kv.me, kv.me)
+			kv.DPrintf2("KVServer%d, Action: Rejected GET. KVServer%d not Leader.  \n", kv.me, kv.me)
 
 
 			reply.WrongLeader = true
@@ -130,7 +130,7 @@ func (kv *RaftKV) Get(args *GetArgs, reply *GetReply) {
 		// 4) Handle Response: If Raft is leader, wait until raft committed Op Struct to log
 		} else if (isLeader) {
 
-			DPrintf1("%s \n KVServer%d, Action:  KVServer%d is Leader. Sent GET Request to Raft. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v\n", debug_break, kv.me, kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue)
+			kv.DPrintf1("%s \n KVServer%d, Action:  KVServer%d is Leader. Sent GET Request to Raft. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v\n", debug_break, kv.me, kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue)
 
 			resp_chan := kv.updateRPCTable(thisOp, index)
 
@@ -147,7 +147,7 @@ func (kv *RaftKV) Get(args *GetArgs, reply *GetReply) {
 			kv.mu.Lock()
 			// Successful commit indicated by Raft: Respond to Client
 			if (rpcReturnInfo.success && open) {
-				DPrintf1("KVServer%d, Action: GET APPLIED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
+				kv.DPrintf1("KVServer%d, Action: GET APPLIED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
 				reply.WrongLeader = false
 				reply.Value = rpcReturnInfo.value // Return value from key. Returns "" if key doesn't exist
 				reply.Err = OK
@@ -155,7 +155,7 @@ func (kv *RaftKV) Get(args *GetArgs, reply *GetReply) {
 			// Commit Failed: If this server discovers it's not longer the leader, then tell the client to find the real leader, 
 			// and retry with the request there. 
 			} else if (!open || !rpcReturnInfo.success) {
-				DPrintf1("KVServer%d, Action: GET ABORTED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
+				kv.DPrintf1("KVServer%d, Action: GET ABORTED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
 				reply.WrongLeader = true
 				reply.Err = OK
 
@@ -175,7 +175,7 @@ func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 
 	// 1) Convert PutAppendArgs into  Op Struct. Include ClientId and RequestID so Servers can update their commitTable
 		thisOp := Op{
-			CommandType: stringToOpType(args.Op), 
+			CommandType: kv.stringToOpType(args.Op), 
 			Key: args.Key, 
 			Value: args.Value,
 			ClientID: args.ClientID, 
@@ -189,7 +189,7 @@ func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	// Note: Even if Server is not leader, respond with the information client needs for this specific request. 
 	if (inCommitTable) {
 
-		DPrintf1("KVServer%d, Action: REPEAT REQUEST. PUTAPPEND ALREADY APPLIED. Respond to client.   \n", kv.me)
+		kv.DPrintf1("KVServer%d, Action: REPEAT REQUEST. PUTAPPEND ALREADY APPLIED. Respond to client.   \n", kv.me)
 		// Note: At this point, it's unkown if this server is the leader. 
 		// However, if the server has the right information for the client, send it. 
 		reply.WrongLeader = false
@@ -212,7 +212,7 @@ func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		// 3) Handle Response: If Raft is not leader, return appropriate reply to client
 		if (!isLeader) {
 
-			DPrintf2("KVServer%d, Action: Rejected PutAppend. KVServer%d not Leader.  \n",kv.me, kv.me)
+			kv.DPrintf2("KVServer%d, Action: Rejected PutAppend. KVServer%d not Leader.  \n",kv.me, kv.me)
 			reply.WrongLeader = true
 			reply.Err = OK
 
@@ -221,7 +221,7 @@ func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 
 		// 4) Handle Response: If Raft is leader, wait until raft committed Op Struct to log
 		} else if (isLeader) {
-			DPrintf1("%s \n KVServer%d, Action:  KVServer%d is Leader. Sent PUTAPPEND Request to Raft. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v\n", debug_break, kv.me, kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue)
+			kv.DPrintf1("%s \n KVServer%d, Action:  KVServer%d is Leader. Sent PUTAPPEND Request to Raft. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v\n", debug_break, kv.me, kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue)
 
 			resp_chan := kv.updateRPCTable(thisOp, index)
 
@@ -231,7 +231,7 @@ func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 			// Wait until: 1) Raft indicates that RPC is successfully committed, 2) this server discovers it's not the leader, 3) failure
 			rpcReturnInfo, open := <- resp_chan
 			
-			// Note: Locking possible here since every RPC created should only receive a single write on the Resp channel. 
+			// Note: Locking not possible here since every RPC created should only receive a single write on the Resp channel. 
 			// Once it receives the response, just wait until scheduled to run. 
 			// Error if we receive two writes on the same channel. 
 			kv.mu.Lock()
@@ -239,7 +239,7 @@ func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 			if (open && rpcReturnInfo.success) {
 
 
-				DPrintf1("KVServer%d, Action: PUTAPPEND APPLIED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
+				kv.DPrintf1("KVServer%d, Action: PUTAPPEND APPLIED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
 				reply.WrongLeader = false
 				reply.Err = OK
 
@@ -249,7 +249,7 @@ func (kv *RaftKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 			} else if (!open || !rpcReturnInfo.success) {
 
 
-				DPrintf1("KVServer%d, Action: PUTAPPEND ABORTED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
+				kv.DPrintf1("KVServer%d, Action: PUTAPPEND ABORTED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
 				reply.WrongLeader = true
 				reply.Err = OK
 
@@ -273,7 +273,7 @@ func (kv *RaftKV) Kill() {
 	// Note: While the serve is being killed, should not handle any other incoming RPCs, etc.
 	kv.mu.Lock()
   	defer kv.mu.Unlock()
-  	DPrintf1("%s \n KVServer%d, Action: Dies \n", debug_break, kv.me)
+  	kv.DPrintf1("%s \n KVServer%d, Action: Dies \n", debug_break, kv.me)
 	
 	// Kill all open go routines when this server quites. 
 	close(kv.shutdownChan)
@@ -281,6 +281,9 @@ func (kv *RaftKV) Kill() {
 	// Since this server will no longer be leader on resstart, return all outstanding PutAppend and Get RPCs. 
 	// Allows respective client to find another leader.
 	kv.killAllRPCs()
+
+	// Turn off debuggin output
+	kv.debug = -1
 
 
 }
@@ -304,6 +307,7 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv := new(RaftKV)
 	kv.me = me
 	kv.maxraftstate = maxraftstate
+	kv.debug = 0
 
 	// Your initialization code here.
 	kv.mu = sync.Mutex{}
@@ -333,7 +337,7 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
 
-	DPrintf1("%s \n KVServer%d, Action: New KV Server and Raft Instance Created. \n", debug_break, kv.me)
+	kv.DPrintf1("%s \n KVServer%d, Action: New KV Server and Raft Instance Created. \n", debug_break, kv.me)
 
 	go kv.processCommits()
 
@@ -354,7 +358,7 @@ func (kv *RaftKV) processCommits() {
 			// Lock the entire code-set that handles returned Operations from applyCh
 			kv.mu.Lock()
 
-			DPrintf2("KVServer%d, State before Receiving OP on applyCh. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n", kv.me, kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
+			kv.DPrintf2("KVServer%d, State before Receiving OP on applyCh. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n", kv.me, kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
 
 
 
@@ -381,7 +385,7 @@ func (kv *RaftKV) processCommits() {
 					if (!ok) {
 						newValue = ""
 					} else if (ok && newValue == "") {
-						DPrintf2("Assertion: Send back a null string value from a found key. Can get confused with ErrNoKey. \n")
+						kv.DPrintf2("Assertion: Send back a null string value from a found key. Can get confused with ErrNoKey. \n")
 					}
 
 					// Update commitTable
@@ -434,10 +438,10 @@ func (kv *RaftKV) processCommits() {
 
 
 			} else {
-				DError("Error: Operation Recieved on applyCh is neither 'Append', 'Put' nor 'Get'. \n")
+				kv.DError("Error: Operation Recieved on applyCh is neither 'Append', 'Put' nor 'Get'. \n")
 			}
 
-			DPrintf2("KVServer%d, State after Receiving OP on applyCh. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n", kv.me, kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
+			kv.DPrintf2("KVServer%d, State after Receiving OP on applyCh. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n \n \n ", kv.me, kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
 
 			kv.mu.Unlock()
 
@@ -469,8 +473,8 @@ func (kv *RaftKV) checkCommitTable_beforeRaft(thisCommand Op) (inCommitTable boo
 
 	// Catch Errors: Received an old RequestID (behind the one already committed)
 	} else if ok && (prevCommitted.requestID > thisCommand.RequestID) {
-		DPrintf1("Error at KVServer%d: prevCommitted: %+v and thisCommand: %+v \n", kv.me, prevCommitted, thisCommand)
-		DError("Error checkCommitTable_beforeRaft: Based on CommitTable, new RequestID is too old. This can happen if RPC very delayed. \n")
+		kv.DPrintf1("Error at KVServer%d: prevCommitted: %+v and thisCommand: %+v \n", kv.me, prevCommitted, thisCommand)
+		kv.DError("Error checkCommitTable_beforeRaft: Based on CommitTable, new RequestID is too old. This can happen if RPC very delayed. \n")
 		// If this happens, just reply to the RPC with wrongLeader (or do nothing). The client won't even be listening for this RPC anymore
 
 	// Process the next valid RPC Request with Start(): If 1) client isn't known or 2) the request is larger than the currently committed request.
@@ -514,8 +518,8 @@ func (kv *RaftKV) checkCommitTable_afterRaft(thisCommand Op) (commitExists bool,
 
 	// Out of Order RPCs: Throw Error
 	} else if (ok && ((prevCommitted.requestID > thisCommand.RequestID) || prevCommitted.requestID+1 < thisCommand.RequestID)) {
-		DError("Error checkCommitTable_afterRaft: Out of order commit reached the commitTable. \n")
-		// Real error since correctness means we cannot have out of order commits. 
+		kv.DError("Error checkCommitTable_afterRaft: Out of order commit reached the commitTable. \n")
+		// Right error since correctness means we cannot have out of order commits. 
 
 	// Operation never committed: Execute operation, and reply. 
 	// Enter if: 1) Client never committed before or 2) the requestID is the next expected id
@@ -564,7 +568,7 @@ func (kv *RaftKV) updateRPCTable(thisOp Op, raftIndex int) (chan RPCReturnInfo) 
 		// with the old request somehow deleted from the log during the term switch. 
 		} else {
 			// Possible when: Server submits an Operation, and then crashes. The operation is then 
-			DPrintf1("Possible Error: Server recieved the same operation with the same index assigned by raft. This is possible, but unlikely. \n")
+			kv.DPrintf1("Possible Error: Server recieved the same operation with the same index assigned by raft. This is possible, but unlikely. \n")
 			// The only way the same client can send a new response is if the other RPC returned. So, we replaced the old request
 			// We know it's the same client since we compare the operation (which includes the client). 
 			kv.waitingForRaft_queue[raftIndex] = new_rpcResp_struct
@@ -575,7 +579,7 @@ func (kv *RaftKV) updateRPCTable(thisOp Op, raftIndex int) (chan RPCReturnInfo) 
 		kv.waitingForRaft_queue[raftIndex] = new_rpcResp_struct
 	}
 
-	DPrintf2("RPCTable  before raft: %v \n", kv.waitingForRaft_queue)
+	kv.DPrintf2("RPCTable  before raft: %v \n", kv.waitingForRaft_queue)
 	return new_rpcResp_struct.resp_chan
 
 }
@@ -611,7 +615,6 @@ func (kv *RaftKV) handleOpenRPCs(raftIndex int, raftOp Op, valueToSend string) {
 			}
 		}
 	}
-	DPrintf2("RPCTable after raft: %v \n", kv.waitingForRaft_queue)
 }
 
 
@@ -619,7 +622,7 @@ func (kv *RaftKV) killAllRPCs() {
 
 	for index, rpcResp_struct := range(kv.waitingForRaft_queue) {
 		// Send false on every channel so every outstanding RPC can return, indicating client to find another leader. 
-		DPrintf2("Kill Index: %d \n", index)
+		kv.DPrintf2("Kill Index: %d \n", index)
 		rpcResp_struct.resp_chan <-  RPCReturnInfo{success: false, value: ""}
 		delete(kv.waitingForRaft_queue, index)
 		
@@ -653,14 +656,14 @@ func compareOp(op1 Op, op2 Op) (sameOp bool) {
 	return sameOp
 }
 
-func stringToOpType(op_s string) (op_type OpType) {
+func (kv *RaftKV)  stringToOpType(op_s string) (op_type OpType) {
 
 	if (op_s == "Append") {
 		op_type = 3
 	} else if (op_s == "Put") {
 		op_type = 2
 	} else {
-		DError("Error: Client's Operation is neither 'Append' nor 'Put'. ")
+		kv.DError("Error: Client's Operation is neither 'Append' nor 'Put'. ")
 		op_type = -1
 	}
 
@@ -668,22 +671,22 @@ func stringToOpType(op_s string) (op_type OpType) {
 }
 
 
-func DPrintf2(format string, a ...interface{}) (n int, err error) {
-	if Debug >= 2 {
+func (kv *RaftKV) DPrintf2(format string, a ...interface{}) (n int, err error) {
+	if kv.debug >= 2 {
 		log.Printf(format, a...)
 	}
 	return
 }
 
-func DPrintf1(format string, a ...interface{}) (n int, err error) {
-	if Debug >= 1 {
+func (kv *RaftKV) DPrintf1(format string, a ...interface{}) (n int, err error) {
+	if kv.debug >= 1 {
 		log.Printf(format, a...)
 	}
 	return
 }
 
-func DError(format string, a ...interface{}) (n int, err error) {
-	if Debug >= 0 {
+func (kv *RaftKV) DError(format string, a ...interface{}) (n int, err error) {
+	if kv.debug >= 0 {
 		log.Fatalf(format, a...)
 	}
 	return

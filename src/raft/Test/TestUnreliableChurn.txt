@@ -238,3 +238,243 @@ Test: unreliable churn ...
   ... Passed
 PASS
 ok  	raft	16.179s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.133s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.188s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.176s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.148s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.317s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.150s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.231s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.184s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.170s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.152s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.230s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.356s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.196s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.168s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.202s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.181s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.183s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.239s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.167s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.209s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.201s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.299s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.211s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.290s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.188s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.160s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.293s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.270s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.179s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.182s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.414s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.174s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.287s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.153s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.294s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.180s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.178s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.179s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.201s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.489s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.494s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.202s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.286s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.396s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.195s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.488s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.249s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.158s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.198s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.287s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.156s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.175s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.341s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.208s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.393s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.298s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.183s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.451s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.339s
+Test: unreliable churn ...
+  ... Passed
+PASS
+ok  	raft	16.193s

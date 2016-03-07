@@ -22,7 +22,7 @@ import "labrpc"
 import "time"
 import "math/rand"
 import "math"
-import "fmt"
+import "log"
 
 import "bytes"
 import "encoding/gob"
@@ -1204,21 +1204,21 @@ func (rf *Raft)getLockedState() (raftState_temp RaftState) {
 
 func (rf *Raft) error(format string, a ...interface{}) (n int, err error) {
 	if rf.debug >= 0 {
-		fmt.Printf(format, a...)
+		log.Fatalf(format, a...)
 	}
 	return
 }
 
 func (rf *Raft) dPrintf1(format string, a ...interface{}) (n int, err error) {
 	if rf.debug >= 1 {
-		fmt.Printf(format, a...)
+		log.Printf(format, a...)
 	}
 	return
 }
 
 func (rf *Raft) dPrintf2(format string, a ...interface{}) (n int, err error) {
 	if rf.debug >= 2 {
-		fmt.Printf(format, a...)
+		log.Printf(format, a...)
 	}
 	return
 }

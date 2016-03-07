@@ -5,6 +5,7 @@ import mrand "math/rand"
 import crand "crypto/rand" 
 import "math/big"
 import "time"
+import "log"
 
 
 type Clerk struct {
@@ -13,6 +14,7 @@ type Clerk struct {
 	currentLeader 	int
 	clientID		int64
 	currentRPCNum	int64
+	debug 			int
 }
 
 func nrand() int64 {
@@ -29,6 +31,7 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck.currentLeader = -1
 	ck.clientID = nrand()
 	ck.currentRPCNum = 0
+	ck.debug = -1
 
 
 	return ck
@@ -53,6 +56,8 @@ func (ck *Clerk) Get(key string) string {
 		Key: key, 
 		ClientID: ck.clientID, 
 		RequestID: ck.currentRPCNum}
+
+	ck.DPrintf1("New Get sent by client%d. Args => %+v  \n", ck.clientID, args )
 
 
 	var rpcSuccess bool = false
@@ -93,9 +98,9 @@ func (ck *Clerk) Get(key string) string {
 					// Exit RPC Sending loop, and safe the current leader. 
 					ck.currentLeader = testServer
 					rpcSuccess = true
-
 					// Return Value: If the key didn't exists, the KVServer already sends "". 
 					getOutput = reply.Value
+					ck.DPrintf1("Get completed by client%d. Sent Args => %+v, Received Reply => %+v  \n \n \n", ck.clientID, args, reply )
 
 
 				// Wrong Leader: find the correct leader
@@ -108,6 +113,7 @@ func (ck *Clerk) Get(key string) string {
 		}
 	}
 
+	
 	// Final Step: RPC Completed so increment the RPC count by 1. 
 	ck.currentRPCNum = ck.currentRPCNum + 1
 	return getOutput
@@ -130,6 +136,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 		ClientID: ck.clientID, 
 		RequestID: ck.currentRPCNum}
 
+	ck.DPrintf1("New PutAppend sent by client%d. Args => %+v  \n", ck.clientID, args )
 
 	var rpcSuccess bool = false
 	// Keep sending this PutAppend Request until it's successful 
@@ -166,6 +173,8 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 			if (ok && !reply.WrongLeader) {
 				ck.currentLeader = testServer
 				rpcSuccess = true
+				ck.DPrintf1("PutAppend completed by client%d. Sent Args => %+v, Received Reply => %+v  \n \n \n", ck.clientID, args, reply )
+
 			// Wrong Leader
 			} else if (ok && reply.WrongLeader) {
 				ck.currentLeader = -1
@@ -197,4 +206,25 @@ func (ck *Clerk) getRandomServer() (testServer int) {
 
 	return testServer
 
+}
+
+func (ck *Clerk) DPrintf2(format string, a ...interface{}) (n int, err error) {
+	if ck.debug >= 2 {
+		log.Printf(format, a...)
+	}
+	return
+}
+
+func (ck *Clerk) DPrintf1(format string, a ...interface{}) (n int, err error) {
+	if ck.debug >= 1 {
+		log.Printf(format, a...)
+	}
+	return
+}
+
+func (ck *Clerk) DError(format string, a ...interface{}) (n int, err error) {
+	if ck.debug >= 0 {
+		log.Fatalf(format, a...)
+	}
+	return
 }
