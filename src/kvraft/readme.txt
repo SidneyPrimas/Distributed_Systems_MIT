@@ -1,51 +1,33 @@
-Potential Optimizations: 
-+ Should the kvServer (not just the Raft) keep track if it's a leader. 
+******************* Lab Implementation Notes l*******************
 
 Question: 
-+ Is the index itself a unique identifier of a Operation? Or, do we need the term as well? 
-+ Do I need to kill all the RPCs waiting for responses from Raft? 
-+ What happens if I enter two of the same client requests into Raft?
-+ Will we only have one index for every Start call. Is it every possible that we get a 2nd index that is the same? 
-+ Should we implement timeouts on RPCs
-+ If I only have one client request at a time, think about my queue of requests!!! 
-+ Why can't we lock Start()
++ Is there any reason I need to lock my Client? I don't think so. 
++ Why can't we Lock Start() and Kill() for rf? 
++ For go routines that are awaiting a reply from the RPC (but the RPC has already timedout by my code), the go routine will block for ever. Do I need to garbage collect this go routine?
++ What does cover mean as a testing parameter? 
 
-ToDo: 
-+ If we find out that server is not leader, we need to clean out the waitForRaft to return the RPCs to the client (indicating that this server is no longer the leader)
-+ Handle no key with Get
-+ In Kill, make sure to close all the RPCs from the clietns that are waiting for a response.
-+ When executing a command, don't execute it if it's the last command that was executed. 
-+ Include random number for Op (check this to make sure command isn't committed twice). Check in KVServer or raft? 
-+ Handle situation where index is not in server request log. 
-+ We do not send ErrNoKey
-+ Think about: I probably don't have to kill open RPCs when I am no longer leader. If I get the appropriate commit, I can return it to the client. If the client moves on, and sents do another RPC, the client will not receive this data anyway. The client will only send a new RPC if it moves on so I should not be at risk of receiving the responses twice. 
-+ Think about killing RPCs if no longer leader. I don't think we need to. 
-+ Close Open channels after RPC returned. Currently, just waiting for garbage collection. 
-+ Combine checkCommitTable_beforeRaft and checkCommitTable_afterRaft => Right now they are identical
+Potential Optimizations: 
++ Have KVServer keep track of leader and send that to the client (ti improve how quickly the client finds the correct server)
++ Close open channels after the RPC has returned. Currently, we are just garbage collecting the channels. 
 
-Note: Need to do this: remove DErrorf for an a very, very delayed RPC. Just in case this situation happens. 
+Possible Issue: 
 
-+ Possible issues: When client times out, but still returns? 
-+ Do I kill RPCs when I am not the leader???
+Future To Do: 
++ Change Raft on line 10001: Essentially, change Raft to allow Raft to enter even if not in the wrong term. The rest of the code is used to ensure that Raft is put in the right term. 
++ Thinking about loop on line 237 in Raft: Can we get infinite looping. 
 
-+ Put checkCommitTable_beforeRaft into a seperate function instead of integrating into Get and PutAppend
-
+******************* Description of Protocol *******************
 Note: 
-+ Returning RPCs to client with notLeader: 
-1) If the server knows it's not the leader before submitting to raft, just return false. 
-2) If the server discovers it's not the leader (after already having submitted client requests to Raft), kill those RPCs and tell the client to find the leader. My current understanding: the major reason for this is that it's safer for the client to send a request from the current leader and receive a response from the current leader. Also, if the 'wrong' leader took a command into it's log, it will most likely be over-written by a new leader. 
-3) If the server crashes, it should ideally indicate to the client that it will be a follower. 
++ Sever discovers not a leader
+++ Rejects future requests from clients. 
+++ Leaves existins RPCs in RPCQue. Only returns RPCs to clients if: 1) the client times out since the server takes too long, 
+2) the server receives a raft index for another raft command that conflicts with an index in the RPCQue, 3) successful return of data, or 4) the server dies. 
++ Finding Correct Operation: To find the right RPC, you need to match the index and the operation. The operation contains requestId and ClientID as well. If you just use the index, you might get an operation with the same index, but from a different term (thus probably being a different operation.)
++ Two client requests into Raft: You can enter two clients requests into Raft (for example) when you 1) have enter a RequestID, 2) the RPC timeouts, and 3) you send the same RequestID to the same server who still thinks they are the leader. Before, they were partitioned, and weren't the leader. But, then when the partition is fixed, they become the leader, and so process the same RequestID twice. On the applyCH, just make sure you don't execute the same requestID twice. Check the commitTable
++ Returning to a client that has timedout: If you return to a client that has timedout, you will write onto the RPC_returned channel. But, there will be no code to read this channel, so the go routine will be blocked for ever. Due to this, it's safe to 1) return data from a commitTable even when server is not the leader and 2) return data from applyCh if the RPCque still has a link to the client (the client will only still be listeing to this channel if it has not sent out another RPC. If the client is not listening, then the go routine will just stall, and the client will never get this information. )
+++ Returning data to client when not leader: Any time there is a commit, RAFT guarantees taht there will be a commit on all servers eventually. So, if there is a commit, we can return that data to the client (either through the commitTable or directly from the applyCh). 
 
-Notes: 
-+ Killing RPCs: We don't need to kill RPCs once we realize we are no longer leader. Essentially, if there is a commit from applyCh, even a non-leader can return this to the client (since we know it's committed). Instead, we release RPCs if we get a commit at an index where an older RPC was sitting. If that's the case, we know that this RPC needs to be re-issued. 
-
-Clients: 
-+ Clients only send one request at a time. 
-
-
-Next: 
-1) Implement processCommits (Make a map, commit to map, respond to appropriate client through Channel)
-2) Implement Client 
-
-Current Problem: 
-+ We never repsond to the client, ever. For some reason, we don't correct respond. Check the status of the RPC table. 
+Tables: 
++ CommitTable: The commitTable is only updated on the applyCh receive (only if we are 100% sure it's been committed.). When we receive an operation from raft or fromt he client, we chekc the commitTable. If it has already been committed before, then we submit it directly from the commitTable. This saves us time (since we don't have to put operations through raft twice) and it makes sure that we dont commit the same operation twice (on the output of raft). 
++ RPC Que: Evert time we receive a RPC, we add a structure into the RPC quue. This structure includes a channel (stored at the raft index) that allows us to return the RPC to the client (by finishing the RPC function). If the client has already moved on when we reply, the go routine on the client side will get our response, and do nothing with it. 
+++ We remove old entries from old RPCs if we recieve a new RPC at the same index. If we receive a new RPC at the same raft index (raft gives us the index), then we know that the request from the RPC is not being completed properly by raft (meaing that raft is now at a new term, and the old submission will not be completed.) Essentially, if we get the same index back, it implies that the old index is invalid, and so we have to return the RPC and it needs to resubmit with the system that is now working. We check if the RPC in RPQ que is outdated whenever we receive an index, which is both when we call Start() and when we receive a committed command on applyCh. Thus, we only artifically unlock RPCs when we know that they are outdated since their index has been given back to us by a more up to date raft. 
