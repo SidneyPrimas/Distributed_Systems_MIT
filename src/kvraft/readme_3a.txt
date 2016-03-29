@@ -13,10 +13,9 @@ Potential Optimizations:
 Possible Issue: 
 
 Future To Do: 
-+ Change Raft on line 10001: Essentially, change Raft to allow Raft to enter even if not in the wrong term. The rest of the code is used to ensure that Raft is put in the right term. 
 + Thinking about loop on line 237 in Raft: Can we get infinite looping. 
 
-******************* Description of Protocol *******************
+******************* Description of Protocol: Lab 3a *******************
 Note: 
 + Sever discovers not a leader
 ++ Rejects future requests from clients. 
@@ -28,6 +27,6 @@ Note:
 ++ Returning data to client when not leader: Any time there is a commit, RAFT guarantees taht there will be a commit on all servers eventually. So, if there is a commit, we can return that data to the client (either through the commitTable or directly from the applyCh). 
 
 Tables: 
-+ CommitTable: The commitTable is only updated on the applyCh receive (only if we are 100% sure it's been committed.). When we receive an operation from raft or fromt he client, we chekc the commitTable. If it has already been committed before, then we submit it directly from the commitTable. This saves us time (since we don't have to put operations through raft twice) and it makes sure that we dont commit the same operation twice (on the output of raft). 
++ CommitTable: The commitTable is only updated on the applyCh receive (only if we are 100% sure it's been committed.). When we receive an operation from raft or from the client, we chekc the commitTable. If it has already been committed before, then we submit it directly from the commitTable. This saves us time (since we don't have to put operations through raft twice) and it makes sure that we dont commit the same operation twice (on the output of raft). 
 + RPC Que: Evert time we receive a RPC, we add a structure into the RPC quue. This structure includes a channel (stored at the raft index) that allows us to return the RPC to the client (by finishing the RPC function). If the client has already moved on when we reply, the go routine on the client side will get our response, and do nothing with it. 
-++ We remove old entries from old RPCs if we recieve a new RPC at the same index. If we receive a new RPC at the same raft index (raft gives us the index), then we know that the request from the RPC is not being completed properly by raft (meaing that raft is now at a new term, and the old submission will not be completed.) Essentially, if we get the same index back, it implies that the old index is invalid, and so we have to return the RPC and it needs to resubmit with the system that is now working. We check if the RPC in RPQ que is outdated whenever we receive an index, which is both when we call Start() and when we receive a committed command on applyCh. Thus, we only artifically unlock RPCs when we know that they are outdated since their index has been given back to us by a more up to date raft. 
+++ We remove old entries from old RPCs if we recieve a new RPC at the same index. If we receive a new RPC at the same raft index (raft gives us the index), then we know that the request from the RPC is not being completed properly by raft (meaing that raft is now at a new term, and the old submission will not be completed.) Essentially, if we get the same index back, it implies that the old index is invalid, and so we have to return the RPC and it needs to resubmit with the system that is now working. We check if the RPC in RPC que is outdated whenever we receive an index, which is both when we call Start() and when we receive a committed command on applyCh. Thus, we only artifically unlock RPCs when we know that they are outdated since their index has been given back to us by a more up to date raft. 

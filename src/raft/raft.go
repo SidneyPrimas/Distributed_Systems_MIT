@@ -252,7 +252,7 @@ func (rf *Raft) manageRaftInterrupts() {
 			//Lock_select_hearbeat
 			rf.mu.Lock()
 
-			//Error Checking
+			//Make sure still leader.
 			if (rf.myState == Leader) {
 			
 				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Send out heartbeat, log: not included \n", rf.me, rf.currentTerm, rf.stateToString())
@@ -299,9 +299,6 @@ func (rf *Raft) manageRaftInterrupts() {
 				// Vote for yourself
 				rf.votedFor = rf.me
 				rf.persist()
-				// Note: the voteCount_mu lock is technically not needed (since the rf.mu should block racy cahnges to voteCount)
-				// We include it for extra saftey. 
-				var voteCount_mu = &sync.Mutex{}
 				var voteCount int = 1
 
 				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Election Time Interrupt. Vote count at %d. \n", rf.me, rf.currentTerm, rf.stateToString(), voteCount)
@@ -328,19 +325,14 @@ func (rf *Raft) manageRaftInterrupts() {
 							// Critical: These state checks (to make sure the servers state has not changed) need to be made 
 							// here since 1) we just recieved the lock (so other threads could be running in between), 
 							// and 2) we will use this data to make permenant state changes to our system. 
-							var voteCount_temp int
 							if (voteGranted && msg_received && (rf.myState == Candidate) && (rf.currentTerm == returnedTerm)) {
-								voteCount_mu.Lock()
 								voteCount = voteCount +1
-								voteCount_temp = voteCount
 								rf.dPrintf1("Server%d, Term%d, State: %s ,Action: Now have a total of %d votes. \n",rf.me, rf.currentTerm, rf.stateToString(), voteCount)
-								voteCount_mu.Unlock()	
-
 							}
 
 							// Decide election
-						 	if ((voteCount_temp >= rf.majority) && (rf.myState == Candidate)){
-						 		rf.dPrintf1("%s \n Server%d, Term%d, State: %s, Action: Elected New Leader, votes: %d\n", debug_break, rf.me, rf.currentTerm, rf.stateToString(), voteCount_temp)
+						 	if ((voteCount >= rf.majority) && (rf.myState == Candidate)){
+						 		rf.dPrintf1("%s \n Server%d, Term%d, State: %s, Action: Elected New Leader, votes: %d\n", debug_break, rf.me, rf.currentTerm, rf.stateToString(), voteCount)
 						 		// Protocol: Transition to leader state. 
 						 		rf.myState = Leader
 						 		rf.electionTimer.Stop()
@@ -426,100 +418,123 @@ func (rf *Raft) getVotes(server int)  (myvoteGranted bool, msg_received bool, re
 // Logic to update the log of the follower
 func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs, reply *AppendEntriesReply)  {
 
-	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Append RPC Request, args => %v, rf.Log => %v  \n", rf.me, rf.currentTerm, rf.stateToString(),  args, rf.log)
+	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Append RPC Request, args => %+v, rf.Log => %+v  \n", rf.me, rf.currentTerm, rf.stateToString(),  args, rf.log)
+
+	// Default reply for ConflictIndex. 
+	reply.ConflictingIndex = 1 // Except if we explicitly set ConflictIndex (due to false replySuccess), it won't be used by Leader. 
 
 
+
+	// Protocol (2A): Determine if the previous entry has the same term and index. If it doesn't, return false. 
+	// If Leader's PrevLogIndex is greater than highest index in Follower's log, the index cannot be the same. 
+	if  (args.PrevLogIndex > len(rf.log)) {
+		reply.Success = false
+
+		if (len(rf.log) == 0) {
+			reply.ConflictingIndex = 1
+		} else {
+			reply.ConflictingIndex = len(rf.log)
+		}
+
+		// Protocol: Immediately reply false if the PrevLogIndex doesn't exist in the log of this folloer. 
+		return 
+		
+	}
 
 	// Handle out of index edge cases: out of range of log[i]
-	// myPrevLogTerm is the term of the log at args.prevIndex (this is what we are comparing to the leader)
+	// myPrevLogTerm is the term of the log at args.prevIndex for this follower (this is what we are comparing to the leader)
+	// Note: Due to return statement, can only get to this part of code if len(rf.log) >= args.PrevLogIndex.
 	var myPrevLogTerm int
-	// out_of_index: Indicates that rf.log (the followers log) doesn't have an index at prevIndex from Leader. 
-	var out_of_index bool = false
-	// Handles the case where the leader sends over the entire log. In this case, server sends Entries starting at Index1. 
-	// Thus, the prevIndex is at 0. At 0, we need to create an artifically -1 Term. 
-	// In this case, the append is guaranteed ot be a lucces
 	if (args.PrevLogIndex == 0) {
 		myPrevLogTerm = -1
-	//Handles edge case when follower log is so far behind, and doesn't have an entry
-	} else if (len(rf.log) < args.PrevLogIndex) {
-		out_of_index = true
 	} else {
 		myPrevLogTerm = rf.log[args.PrevLogIndex-1].Term
 	}
 
-
-	// Conflicting Term: The conflict Term is the term at prevIndex that the leader sent (it's the log we are comparing).
-	// Protocol: Determine if the previous entry has the same term an index
-	// Protocol: If it doesn't, return false. 
-	if (out_of_index) {
+	// Protocol (2B): If the Follower doesn't have the same term (as PrevLogTerm) at the same index (as PrevLogIndex), then they don't match.
+	if (myPrevLogTerm != args.PrevLogTerm) {
 		reply.Success = false
 
-		//Handle the case where rf.log has no entries. 
-		if len(rf.log) == 0 {
-			reply.ConflictingTerm = -1
-		} else {
-			reply.ConflictingTerm = rf.log[len(rf.log)-1].Term
-		}
-		
-	} else if (myPrevLogTerm != args.PrevLogTerm) {
-		reply.ConflictingTerm = myPrevLogTerm
-		reply.Success = false
-	// Protocol: If the previous log entry has the same term/index, update this server's log
-	} else {
+		reply.ConflictingIndex = rf.getFirstIndexInTerm(args.PrevLogIndex, myPrevLogTerm)
 
-		// Protocol: Update this server with the correct logs and commitIndex. 
-		reply.Success = true
-
-		// Protocol: If index/term are different in sent log (rf.Entries), remove that index and all other 
-		// log entries after that index from follower.
-		// Note: Need to do this since these Append Entries RPCs might come out of order, 
-		// and we don't want to undo anything that's already written to a log. 
-		// entriesIDifferent: Array index at which entry should be copied over to rf.log. 
-		// entriesIDifferent: If they aren't different, nothing should be copied over. 
-		var entriesIDifferent int = len(args.Entries)
-		for i,v := range(args.Entries) {
-			// Handle case where the next rf.log doesn't exist. Since the entry doesn't exist, we know it conflicts. 
-			// Note: if (max index of rf.log) is <= (the index we plan to append), then the index doesn't exist in rf.log. 
-			if (len(rf.log)-1 < args.PrevLogIndex+i) {
-
-				entriesIDifferent = i
-
-				break
-			// Handle the case where the next rf.log entry exists but isn't up to date 
-			// Protocol: "If an existing entry conflicts with a new one, delete the existing entry". 
-			} else if(v.Term != rf.log[args.PrevLogIndex+i].Term) {
-
-				// Identify the conflict
-				entriesIDifferent = i
-				// Delete the entry at logIDifferent, and all that follow
-				logIDifferent := args.PrevLogIndex+i
-				// Note: If we remove an entry that has been committed, throw an error. 
-				// Note: We remove anything at or above logIDifferent, so throw error when of commitIndex_i is greater or equal. 
-				if (logIDifferent <= rf.commitIndex-1) {
-					rf.error("Error: Deleting Logs already committed.  \n", );
-				}
-				rf.log = rf.log[:logIDifferent]
-				break
-			}
-		}
-
-		// Protocol: Append any new entries not already in the log. 
-		rf.log = append(rf.log, args.Entries[entriesIDifferent:]...)
-		rf.persist()
-		
-
-		// Protocol: Update on the entries that have been comitted. At this point, rf.log should be up to date. 
-		if (args.LeaderCommit > rf.commitIndex) {
-			// Protocol: Use the minimum between leaderCommit and current Log's max index since 
-			// there is no way to commit entries that are not in log. 
-			rf.commitIndex = int(math.Min(float64(args.LeaderCommit), float64(len(rf.log))))
-			if (rf.commitIndex != args.LeaderCommit) {
-				rf.error("Error: Claimed to have updated the full log of a follower, but didn't \n")
-			}
-		}
-
+		// Protocol: Immediately reply false if the PrevLogIndex doesn't exist in the log of this folloer. 
+		return
 	}
+
+	// Protocol (3-5): APPEND Entry is a succuess. The PrevLogIndex and PrevLogTerm are equal in the follower's Log. 
+	// Protocol: In steps 3-5, update this server with the correct logs and commitIndex. 
+	// Note: Due to return statements above, only get to this part of code if AppendEntry is a success.
+	reply.Success = true
+
+	// Protocol (3): If index/term are different in sent log (rf.Entries), remove that index and all other 
+	// log entries after that index from follower.
+	// Note: Need to do this since these Append Entries RPCs might come out of order, 
+	// and we don't want to undo anything that's already written to a log. 
+	// entriesIDifferent: Array index at which entry should be copied over to rf.log. 
+	// entriesIDifferent: If they aren't different, nothing should be copied over. 
+	var entriesIDifferent int = len(args.Entries)
+	for i,v := range(args.Entries) {
+		// Handle case where the next rf.log doesn't exist. Since the entry doesn't exist, we know it conflicts. 
+		// Note: if (max index of rf.log) is <= (the index we plan to append), then the index doesn't exist in rf.log. 
+		if (len(rf.log)-1 < args.PrevLogIndex+i) {
+
+			entriesIDifferent = i
+
+			break
+		// Handle the case where the next rf.log entry exists but isn't up to date 
+		// Protocol: "If an existing entry conflicts with a new one, delete the existing entry". 
+		} else if(v.Term != rf.log[args.PrevLogIndex+i].Term) {
+
+			// Identify the conflict
+			entriesIDifferent = i
+			// Delete the entry at logIDifferent, and all that follow
+			logIDifferent := args.PrevLogIndex+i
+			// Note: If we remove an entry that has been committed, throw an error. 
+			// Note: We remove anything at or above logIDifferent, so throw error when of commitIndex_i is greater or equal. 
+			if (logIDifferent <= rf.commitIndex-1) {
+				rf.error("Error: Deleting Logs already committed.  \n", );
+			}
+			rf.log = rf.log[:logIDifferent]
+			break
+		}
+	}
+
+	// Protocol (4): Append any new entries not already in the log. 
+	rf.log = append(rf.log, args.Entries[entriesIDifferent:]...)
+	rf.persist()
+	
+
+	// Protocol (5): Update on the entries that have been comitted. At this point, rf.log should be up to date. 
+	if (args.LeaderCommit > rf.commitIndex) {
+		// Protocol: Use the minimum between leaderCommit and current Log's max index since 
+		// there is no way to commit entries that are not in log. 
+		rf.commitIndex = int(math.Min(float64(args.LeaderCommit), float64(len(rf.log))))
+		if (rf.commitIndex != args.LeaderCommit) {
+			rf.error("Error: Claimed to have updated the full log of a follower, but didn't \n")
+		}
+	}
+
 	return
+}
+
+
+func (rf *Raft) getFirstIndexInTerm(initialIndex int, conflictingTerm int) (firstIndex int) {
+
+	if (conflictingTerm == -1) {
+		rf.error("Error: When the follower's Term at args.PrevLogIndex is -1 (meaning a non-existent element in the log), the AppedEntries func should always be successful. \n")
+	}
+
+	// From the point in the log where the terms conflict (initialIndex), decrease the index until 
+	// 1) the begginging of the log or 2) the term changes to a lower term.
+	firstIndex = initialIndex
+	for firstIndex > 0 &&
+			conflictingTerm <= rf.log[firstIndex-1].Term {
+		firstIndex--
+	}
+
+	// We want the last index of a term. 
+	firstIndex++
+	return firstIndex
 }
 
 // Protocol: Used to send AppendEntries request to each server until the followr server updates. 
@@ -591,27 +606,12 @@ func (rf *Raft) updateFollowerLogs(server int)  (msg_received bool, returnedTerm
 			rf.checkCommitStatus(&reply)
 
 		} else if (!reply.Success) {
-			// Protocol: If fail because of log inconsistency, decrement next index by 1. 
-			rf.dPrintf1("ConflictingTerm: %d \n", reply.ConflictingTerm)
-
-			// Default of myNextIndex: Since the AppendLog wasn't successful, in the non-optimized case, I now send the preveiou log. 
-			// In the optimized case, I send the first log with Term of ConflictingTerm
-			var myNextIndex int = args.PrevLogIndex
 			
-			// Since we are sending args.PrevLogIndex, we should iterate up to that log entry but not more. 
-			for i := 0; i <= args.PrevLogIndex-1; i++ {
+			rf.dPrintf1("Server%d, Term%d, State: %s, Action: Optimization Update, ConflictingIndex => %v, rf.log => %v \n", rf.me, rf.currentTerm, rf.stateToString(), reply.ConflictingIndex, rf.log)
 
-				//Traverse through Leaders log and find first Log entry with the ConflictingTerm
-				if(rf.log[i].Term == reply.ConflictingTerm) {
-					// i is the indice of when they match, which coresponds to an index of i+1
-					// This is the Index I want to send, so I set it to myNextIndex
-					myNextIndex = i + 1
-					break
-				}
-			}
-			// Method to increase speed even faster by sending all logs. 
-			myNextIndex = 1
-			rf.nextIndex[server] = myNextIndex
+			rf.dPrintf2("Action: Update rf.nextIndex. Old nextIndex => %v", rf.nextIndex)
+			rf.nextIndex[server] = reply.ConflictingIndex
+			rf.dPrintf2("Action: Update rf.nextIndex. New nextIndex => %v", rf.nextIndex)
 			
 		}
 
@@ -652,7 +652,6 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
 }
 
 // Everytime a follower returns successfully from a Append Entries Routine, check if leader can commit additional log entries. 
-//
 func (rf *Raft) checkCommitStatus(reply *AppendEntriesReply) {
 
 	// Protocol: Only the leader can decide when it's safe to apply a command to the state machine. 
@@ -846,10 +845,9 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 	  	defer rf.mu.Unlock()
 
 
-		// Critical: These state checks (to make sure the servers state has not changed) need to be made 
-		// here since 1) we just recieved the lock (so other threads could be running in between), 
-		// and 2) we will use this data to make permenant state changes to our system. 
-		if(ok && (rf.myState == Candidate) && (rf.currentTerm == reply.Term)) {
+		// Note: We don't need to check the server state or term before entering this if statement. This term/state checking 
+		// code block needs to be done when every RPC is exchanged. 
+		if(ok) {
 			// Protocol: As always, if this server's term is lagging, update the term. 
 			// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
 			if (reply.Term > rf.currentTerm) {
@@ -892,14 +890,14 @@ type AppendEntriesArgs struct {
 type AppendEntriesReply struct {
 	// Your data here.
 	Term 				int
-	ConflictingTerm		int
+	ConflictingIndex	int
 	Success 			bool
 
 }
 
 //
-// Sidney: Function handles communication between Raft instances to synchronize on logs. 
-// Sidney: Functions handles as an indication of a heartbeat
+// Function handles communication between Raft instances to synchronize on logs. 
+// Functions handles as an indication of a heartbeat
 //
 func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply) {
 	// Needed to maintain appropriate concurrency 
@@ -998,7 +996,7 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 	  	defer rf.mu.Unlock()
 	  	
 
-		if(ok && (rf.myState == Leader) && (rf.currentTerm == reply.Term)) {
+		if(ok) {
 			// Protocol: As always, if this server's term is lagging, update the term. 
 			// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
 			if (reply.Term > rf.currentTerm) {
@@ -1103,6 +1101,7 @@ func (rf *Raft) Kill() {
 	// Note: With the locking implemented, we technically can close the channel. Since this code will run synchronously with any thread
 	// that checks serviceClientChan. And, once this function is finished running, the test is successful. 
 	// close(rf.serviceClientChan)
+
 	rf.heartbeatTimer.Stop()
 	rf.electionTimer.Stop()
 
@@ -1128,7 +1127,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.persister = persister
 	rf.me = me
 	rf.mu = sync.Mutex{}
-	rf.debug = -1
+	rf.debug = 0
 	// Needed to maintain appropriate concurrency 
 	// Note: This case probably not necessary, but included for saftey 
 	rf.mu.Lock()
@@ -1150,9 +1149,8 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	//Create heartbeat timer. Make sure it's stopped. 
 	rf.heartbeatTimer = time.NewTimer(time.Millisecond * rf.heartbeat_len)
 	rf.heartbeatTimer.Stop()
+
 	//Create channel to synchronize log entries by handling incoming client requests. 
-	//Channel is buffered so that we can handle/order 256 client requests simultaneously. 
-	//TODO: Implement technique that doesn't limit how many client requests we can handle simultaneously. 
 	rf.serviceClientChan = make(chan int, 512)
 
 	rf.shutdownChan = make(chan int)
@@ -1170,9 +1168,9 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 	}
 
-
+	// Go live
+	rf.dPrintf1("Server%d, Term%d, State: %s, Action: SERVER Created \n %s \n" , rf.me, rf.currentTerm, rf.stateToString(), debug_break)
 	go rf.manageRaftInterrupts()
-
 	go rf.commitLogEntries(applyCh)
 
 
@@ -1211,14 +1209,14 @@ func (rf *Raft) error(format string, a ...interface{}) (n int, err error) {
 
 func (rf *Raft) dPrintf1(format string, a ...interface{}) (n int, err error) {
 	if rf.debug >= 1 {
-		log.Printf(format, a...)
+		log.Printf(format + "\n", a...)
 	}
 	return
 }
 
 func (rf *Raft) dPrintf2(format string, a ...interface{}) (n int, err error) {
 	if rf.debug >= 2 {
-		log.Printf(format, a...)
+		log.Printf(format + "\n", a...)
 	}
 	return
 }

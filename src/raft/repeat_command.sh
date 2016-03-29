@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-mkdir -p TestReliableChurn
-for i in {101..130}
+#Note: > means that errors (or log print statments) will be printed to the terminal.
+#Note: &> means that errors (or log print statments) will be printed to the txt file, and not the terminal.
+for i in {1..10}
 do
-  go test -run TestReliableChurn >> ./TestReliableChurn/TestReliableChurn_final${i}.txt
+  go test -test.v >> ./Custom_Test/TestCheckSummary.txt
 done

@@ -1,30 +1,28 @@
-******************* Lab Implementation Notes l*******************
+******************* Lab Implementation Notes *******************
 
 Possible To Do: 
-+ Error check if any rf.log have out of index issues. 
-+ Remove optimization where I send entire log to follower when they are not up to date. Might cause problems later. 
++ Improve how I: 1) Switch between states (during a term switch) and 2) handle term/state checking during after an RPC exchange. Essentially, I repeate the same code in multiple locations instead of consolidating this into a function. 
++ Break out code into more modular re-usable functions: for example, demoteToFollower(), updateTerm(), firstTermElement(), isLogUpToDate(), becomeLeader() 
++ Handle transitions through a better method. Essentially, transitions should be placed in a function, so each transition can be triggered with a single line of code (to improve readability). 
++ Error check if any rf.log have out of index issues.  
++ Make all go routines into seperate functions, and make all the select statements into seperate functionss. This will improve readability. 
 
 Possible Debug Issues: 
 + We try to handle setting the heartbeat intelligently: When you transition to leader, turn it on. And, if you are leader, keep on restarting it once it runs out. Another option is to use Tickers (can possibly use for election timer as well by just reinitializing the clock each time it runs out)
-+ Finite Client Requests Handled (buffer Channel for incoming requests): Currently have limited amount of client requests I can process simultaneously. Drain the channel to make sure we are not backed-up. 
-+ When follower's log out of date, I send the entire log: Although this improves system performance now, once I imlement Lab3, this might causes issues, and reduce performance. 
++ When server killed, make sure all functions stop running ASAP by adding: if rf.killed{return}. 
 
 
 Optional Saftey: 
-+ We include reply variable in checkCommitStatus. This is not explicity necessary since this function is contained in a mutual exclusion lock, and thus should not have a state change from the initial check. 
-+ We include an extra lock for voteCount. However, this lock doesn't seem necessary since rf.mu should already make any change to voteCount mutually exclusive. We keep it for saftey. 
++ We include reply variable in checkCommitStatus. This is not explicity necessary since this function is contained in a mutual exclusion lock, and thus should not have a state change from the initial check. In fact, the entire checkCommitStatus has a few unnecessary checks. 
 
-
-Future Improvements: 
-+ Handle transitions through a better method. Essentially, transitions should be placed in a function, so each transition can be triggered with a single line of code (to improve readability). 
 
 Questions: 
 + What is a good approach/strategy for using logs? (using actual logs, formatting of logs, showing color, etc)
 + I often see null characters when I print to a file. How do I fix this
 + Currently sending my full log. Will that cause problems later on? 
-+ Better way to switch states
-+ Locking question
-+ Buffinger incoming client requests???? Is this an issue? 
+
+Notes: 
++ Finite Client Requests Handled (buffer Channel for incoming requests): Currently have limited amount of client requests I can process simultaneously. Drain the channel to make sure we are not backed-up. => This is not an issue. When a value is written on a channel, the code doesn't progress until we read from the channel. Thus, as long as there is active code looking to read from a channel, the channel will continiously be cleared. 
 
 
 ******************* Description of Protocol *******************
