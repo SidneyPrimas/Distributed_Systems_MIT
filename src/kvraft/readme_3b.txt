@@ -4,6 +4,12 @@ Change to Raft:
 + Generic Term/State checking of Incoming RPC: When RPCs return to sendRequestVote and sendAppendEntries, we first check if the server is in the correct term. If it isn't, then we update the term, and put it into follower mode. For these changes to the server's states, we do not need to check if the server is a candidate/leader since this change needs to be done independent of this. For any changes specific to the server being a candidate/leader, we always need to check the term and the server state. 
 
 To Do: 
++ When we restore a snapshot, where to we store lastIncludedIndex and lastIncludedTerm
++ Make sure the truncated log can be garbage collected by GoLang.
++ Upon restart ater crash, reinitialize base on the last snapshot. Also, if the snapshot existed, reinitialize commitIndex and lastApplied to lastIncludedIndex. I probalby need a way to pass Snapshot parameters (as request by Raft) to Raft. 
+
+Careful: 
++ When presisting (or maybe it was sending) the CommitTable, the persist will only work if the types start with a capital letter. 
 
 
 ******************* Description of Protocol: Lab 3b *******************
@@ -19,6 +25,16 @@ Note:
 + When restarting (after a crash), the KVServer needs to use persister.ReadSnapshot() to to restore the state of the server from it's last saved snapshot. 
 
 High Level: 
-+ Managing Snapshots: Use maxraftstate to determine when the raft GOB is too large (has too many bytes). Check if the GOB is too large every time the KVServer receives a message from the applyCh. When the KVServer receives a message from the apply channel, we know the raft has committed a log entry (which means that we can technically take a snapshot). Also, we know that the operation will be executed by the server, and so it only then makes sense to take a new snapshot. Note: Snapshots can only be take from committed entries. 
-++ If the GOB is too large, initiate the snapshot process. The snapshot will be taken by the kv server. And, once it has been taken, the kv server should tell raft so that it can discar old entires. If the GOB is below maxraftstate bytes, then move forward as usual. 
++ Take Snapshot:
+++ Determine if we need to take a snapshot: Use maxraftstate to determine when the raft GOB is too large (has too many bytes). Check if the GOB is too large every time the KVServer receives a message from the applyCh. When the KVServer receives a message from the apply channel, we know that the operation has been executed by the server, and so it only then makes sense to take a new snapshot. 
+++ Take snapshot that includes: 1) the state of the server machine 2) the last index included in the snapshot, and 3) the last term included in the snapshot. 
+++ Indicate to raft to truncate it's log. Truncate the log up the last included snapshot index (or lastIncludedIndex). 
+
++ Rambling Notes of Take Snapshot:
+++ Use maxraftstate to determine when the raft GOB is too large (has too many bytes). Check if the GOB is too large every time the KVServer receives a message from the applyCh. When the KVServer receives a message from the apply channel, we know the raft has committed a log entry (which means that we can technically take a snapshot). Also, we know that the operation will be executed by the server, and so it only then makes sense to take a new snapshot. Note: Snapshots can only be take from committed entries. 
+++ If the GOB is too large, initiate the snapshot process. The snapshot will be taken by the kv server. And, once it has been taken, the kv server should tell raft so that it can discard old entires. 
+
+
 + InstallSnapshot RPC: When the leader discovers it no longer has log data requested by a follower, then the leader must install a snapshot to the follower instead. The leader sends the snapshot to the follower in a single RPC. The follower handles the snapshot based on the Figure13 instructions, and installs the actual snapshot by sending it through to the KVServer through the applyCh. 
+
+

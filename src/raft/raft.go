@@ -36,6 +36,7 @@ const debug_break = "-----------------------------------------------------------
 //
 type ApplyMsg struct {
 	Index       int
+	Term 		int
 	Command     interface{}
 	UseSnapshot bool   // ignore for lab2; only used in lab3
 	Snapshot    []byte // ignore for lab2; only used in lab3
@@ -114,6 +115,11 @@ type Raft struct {
 	myState RaftState
 	debug int
 	heartbeat_len time.Duration
+
+	// Snapshot Related Variavles
+	lastIncludedIndex 	int
+	lastIncludedTerm	int
+
 
 }
 
@@ -640,6 +646,7 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
 
 				msgOut := ApplyMsg{}
 				msgOut.Index = rf.lastApplied
+				msgOut.Term = rf.log[rf.lastApplied-1].Term
 				msgOut.Command = rf.log[rf.lastApplied-1].Command
 				applyCh <- msgOut
 				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, msgSent => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.commitIndex, msgOut)
@@ -1133,9 +1140,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.mu.Lock()
   	defer rf.mu.Unlock()
 
-	// Initialize volatile states (variables described by Figure2)
-	rf.commitIndex = 0
-	rf.lastApplied = 0
+
 
 	rf.heartbeat_len = 50
 	//Determine votes needed for a majority. (Use implicit truncation of integers in divsion to get correct result)
@@ -1165,8 +1170,17 @@ func Make(peers []*labrpc.ClientEnd, me int,
 		// Protocol: Initialize current term to 0 on first boot
 		rf.currentTerm = 0
 		rf.votedFor = -1
-
 	}
+
+
+	// Initialize Snapshot States
+
+	rf.lastIncludedIndex = 0
+	rf.lastIncludedTerm = 0
+	// Initialize volatile states (variables described by Figure2)
+	rf.commitIndex = 0
+	rf.lastApplied = 0
+
 
 	// Go live
 	rf.dPrintf1("Server%d, Term%d, State: %s, Action: SERVER Created \n %s \n" , rf.me, rf.currentTerm, rf.stateToString(), debug_break)
@@ -1177,7 +1191,40 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	return rf
 }
 
-// SUPPORTING FUNCTIONS
+// After snapshot taken, truncates the logs. 
+func (rf *Raft) TruncateLogs(lastIncludedIndex int, lastIncludedTerm int) {
+
+	rf.dPrintf_now("Server%d, Term%d, State: %s, Action: Truncate Logs. lastIncludedIndex => %d, lastIncludedTerm => %d \n" , rf.me, rf.currentTerm, rf.stateToString(), lastIncludedIndex, lastIncludedTerm)
+	
+	// Update snapshot variables in rf structure
+	rf.lastIncludedIndex =  lastIncludedIndex
+	rf.lastIncludedTerm = lastIncludedTerm
+
+	// Truncate all logs before lastIncludedIndex. Reassign log slice to rf.logs. Only keep log entries that are not part of the snapshot.
+	rf.dPrintf_now("Before Truncation. rf.log => %v, Raft Size => %d \n", rf.log, rf.persister.RaftStateSize())
+	rf.log = rf.log[rf.lastIncludedIndex:len(rf.log)]
+	rf.persist()
+	rf.dPrintf_now("After Truncation. rf.log => %v, Raft Size => %d \n", rf.log, rf.persister.RaftStateSize())
+
+}
+
+// Function to 
+func (rf *Raft) getLogEntry(realIndex int) RaftLog {
+	snap_i :=realIndex-rf.lastIncludedIndex-1;
+	return rf.log[snap_i]
+}
+
+
+
+func (rf *Raft) logIncludesIndex(realIndex int) bool {
+	return (realIndex > rf.lastIncludedIndex)
+}
+
+func (rf *Raft) realLogLength() int {
+	return len(rf.log) + rf.lastIncludedIndex
+}
+
+//********** UTILITY FUNCTIONS **********//
 
 // Returns a new election timeout duration between 150ms and 300ms
 func getElectionTimeout() time.Duration {
@@ -1216,6 +1263,13 @@ func (rf *Raft) dPrintf1(format string, a ...interface{}) (n int, err error) {
 
 func (rf *Raft) dPrintf2(format string, a ...interface{}) (n int, err error) {
 	if rf.debug >= 2 {
+		log.Printf(format + "\n", a...)
+	}
+	return
+}
+
+func (rf *Raft) dPrintf_now(format string, a ...interface{}) (n int, err error) {
+	if rf.debug >= 0 {
 		log.Printf(format + "\n", a...)
 	}
 	return

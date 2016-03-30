@@ -6,6 +6,7 @@ import (
 	"log"
 	"raft"
 	"sync"
+	"bytes"
 )
 
 const debug_break = "---------------------------------------------------------------------------------------"
@@ -50,6 +51,7 @@ type RPCResp struct {
 type RaftKV struct {
 	mu    sync.Mutex
 	me    int
+	persister *raft.Persister
 	rf    *raft.Raft
 	debug int
 
@@ -291,8 +293,9 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 
 	kv := new(RaftKV)
 	kv.me = me
+	kv.persister = persister
 	kv.maxraftstate = maxraftstate
-	kv.debug = 0
+	kv.debug = 1
 
 	// Your initialization code here.
 	kv.mu = sync.Mutex{}
@@ -414,6 +417,10 @@ func (kv *RaftKV) processCommits() {
 
 			kv.DPrintf2("KVServer%d, State after Receiving OP on applyCh. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n \n \n ", kv.me, kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
 
+			// Determine if snapshots are needed, and handle the process of obtaining a snapshot. 
+			// Note: Take  snapshot after we execute command to ensure that the snapshot includes the last committed message in map. 
+			kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
+
 			kv.mu.Unlock()
 
 		case <-kv.shutdownChan:
@@ -421,6 +428,48 @@ func (kv *RaftKV) processCommits() {
 
 		}
 	}
+}
+
+// Determine if we need to take a snapshot. Handle the process of obtaining a snapshot. 
+func (kv *RaftKV) manageSnapshots(lastIncludedIndex int, lastIncludedTerm int) {
+
+	// Determine if we need to take a snapshot 
+	// If size of stored raft state in bytes>= maxraftstate, take snapshot.
+	currentRaftSize := kv.persister.RaftStateSize()
+	if (currentRaftSize >= kv.maxraftstate) {
+		kv.DPrintf1("KVServer%d, Action: Initiate snapshot. RaftSize => %d, maxraftstate => %d \n", kv.me, currentRaftSize, kv.maxraftstate)
+
+		kv.persistSnapshot(lastIncludedIndex, lastIncludedTerm)
+
+		kv.rf.TruncateLogs(lastIncludedIndex, lastIncludedTerm)
+
+	}
+
+}
+
+
+// Take a snapshot of the current server state. 
+func (kv *RaftKV) persistSnapshot(lastIncludedIndex int, lastIncludedTerm int) {
+
+	 w := new(bytes.Buffer)
+	 e := gob.NewEncoder(w)
+	 e.Encode(kv.kvMap)
+	 e.Encode(lastIncludedIndex)
+	 e.Encode(lastIncludedTerm)
+	 data := w.Bytes()
+	 kv.persister.SaveSnapshot(data)
+}
+
+// Load the data from the last stored snapshot. 
+func (kv *RaftKV) readPersistSnapshot(data []byte) {
+
+	 r := bytes.NewBuffer(data)
+	 d := gob.NewDecoder(r)
+	 d.Decode(&kv.kvMap)
+	 var lastIncludedIndex int
+	 d.Decode(&lastIncludedIndex)
+	 var lastIncludedTerm int
+	 d.Decode(&lastIncludedTerm)
 }
 
 func (kv *RaftKV) checkCommitTable_beforeRaft(thisCommand Op) (inCommitTable bool, returnValue string) {
@@ -629,14 +678,14 @@ func (kv *RaftKV) stringToOpType(op_s string) (op_type OpType) {
 
 func (kv *RaftKV) DPrintf2(format string, a ...interface{}) (n int, err error) {
 	if kv.debug >= 2 {
-		log.Printf(format, a...)
+		log.Printf(format + "\n", a...)
 	}
 	return
 }
 
 func (kv *RaftKV) DPrintf1(format string, a ...interface{}) (n int, err error) {
 	if kv.debug >= 1 {
-		log.Printf(format, a...)
+		log.Printf(format + "\n", a...)
 	}
 	return
 }

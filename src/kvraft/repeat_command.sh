@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-mkdir -p TestReliableChurn
-for i in {101..130}
+mkdir -p Custom_test
+for i in {1..1}
 do
-  go test -run TestReliableChurn >> ./TestReliableChurn/TestReliableChurn_final${i}.txt
+  go test -test.v >> ./Custom_test/TestCheckSummary.txt
 done

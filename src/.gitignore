@@ -8,3 +8,4 @@ mrtmp.*
 /kvraft/Test/*
 /raft/Test/*
 /raft/Custom_Test/*
+/kvraft/Custom_test/*
