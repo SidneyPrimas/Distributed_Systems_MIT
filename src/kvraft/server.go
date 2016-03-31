@@ -34,8 +34,8 @@ type Op struct {
 }
 
 type CommitStruct struct {
-	requestID   int64
-	returnValue string
+	RequestID   int64
+	ReturnValue string
 }
 
 type RPCReturnInfo struct {
@@ -51,8 +51,8 @@ type RPCResp struct {
 type RaftKV struct {
 	mu    sync.Mutex
 	me    int
-	persister *raft.Persister
 	rf    *raft.Raft
+	persister *raft.Persister
 	debug int
 
 	applyCh              chan raft.ApplyMsg
@@ -293,9 +293,9 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 
 	kv := new(RaftKV)
 	kv.me = me
-	kv.persister = persister
 	kv.maxraftstate = maxraftstate
-	kv.debug = 1
+	kv.persister = persister
+	kv.debug = 2
 
 	// Your initialization code here.
 	kv.mu = sync.Mutex{}
@@ -318,6 +318,13 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	// Used to shutdown go routines when service is killed.
 	kv.shutdownChan = make(chan int)
 
+	// Load persisted snapshot (if it exists)
+	// For failure recover, raft reads directly from persister. 
+	rawSnapshotData := persister.ReadSnapshot()
+	if (len(rawSnapshotData) > 0) {
+		kv.readPersistSnapshot(rawSnapshotData)
+	}
+
 	// Initiates raft system (built as part of Lab2)
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
@@ -334,7 +341,7 @@ func (kv *RaftKV) processCommits() {
 
 	// Go routine that loops until server is shutdown.
 	for {
-
+		
 		select {
 		case commitMsg := <-kv.applyCh:
 
@@ -342,6 +349,16 @@ func (kv *RaftKV) processCommits() {
 			kv.mu.Lock()
 
 			kv.DPrintf2("KVServer%d, State before Receiving OP on applyCh. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n", kv.me, kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
+
+			if (commitMsg.UseSnapshot) {
+				kv.readPersistSnapshot(commitMsg.Snapshot)
+				kv.DPrintf2("KVServer%d, State Machine reset with snapshot. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n", kv.me, kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
+
+				// Just apply the snapshot. This will skip all of the rest of the exectuion, and return to select. 
+				kv.mu.Unlock()
+				continue
+			}
+			
 
 			// Type Assert: Package the Command from ApplyMsg into an Op Struct
 			thisCommand := commitMsg.Command.(Op)
@@ -368,7 +385,7 @@ func (kv *RaftKV) processCommits() {
 					}
 
 					// Update commitTable
-					kv.lastCommitTable[thisCommand.ClientID] = CommitStruct{requestID: thisCommand.RequestID, returnValue: returnValue}
+					kv.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID, ReturnValue: returnValue}
 
 				}
 
@@ -387,7 +404,7 @@ func (kv *RaftKV) processCommits() {
 					kv.kvMap[thisCommand.Key] = thisCommand.Value
 
 					// Update commitTable. No returnValue since a put/append request
-					kv.lastCommitTable[thisCommand.ClientID] = CommitStruct{requestID: thisCommand.RequestID}
+					kv.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID}
 				}
 
 				//Return RPC to Client with correct value.
@@ -405,7 +422,7 @@ func (kv *RaftKV) processCommits() {
 					kv.kvMap[thisCommand.Key] = kv.kvMap[thisCommand.Key] + thisCommand.Value
 
 					// Update commitTable. No returnValue since a put/append request
-					kv.lastCommitTable[thisCommand.ClientID] = CommitStruct{requestID: thisCommand.RequestID}
+					kv.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID}
 				}
 
 				//Return RPC to Client with correct value.
@@ -417,11 +434,16 @@ func (kv *RaftKV) processCommits() {
 
 			kv.DPrintf2("KVServer%d, State after Receiving OP on applyCh. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n \n \n ", kv.me, kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
 
+			kv.mu.Unlock()
+
 			// Determine if snapshots are needed, and handle the process of obtaining a snapshot. 
 			// Note: Take  snapshot after we execute command to ensure that the snapshot includes the last committed message in map. 
-			kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
+			// Note: If kv.maxraftstate = -1, this indicates snapshotting is not being used. 
+			// Note: Cannot lock communication channels with Raft (not from KVServer to Raft)
+			if (kv.maxraftstate>-1) {
+				kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
+			}
 
-			kv.mu.Unlock()
 
 		case <-kv.shutdownChan:
 			return
@@ -437,27 +459,25 @@ func (kv *RaftKV) manageSnapshots(lastIncludedIndex int, lastIncludedTerm int) {
 	// If size of stored raft state in bytes>= maxraftstate, take snapshot.
 	currentRaftSize := kv.persister.RaftStateSize()
 	if (currentRaftSize >= kv.maxraftstate) {
-		kv.DPrintf1("KVServer%d, Action: Initiate snapshot. RaftSize => %d, maxraftstate => %d \n", kv.me, currentRaftSize, kv.maxraftstate)
+		kv.mu.Lock()
+		kv.DPrintf1("KVServer%d, Action: Create Snapsthot. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n", kv.me, kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
 
-		kv.persistSnapshot(lastIncludedIndex, lastIncludedTerm)
+		// Marshal data into snapshot buffer
+		w := new(bytes.Buffer)
+	 	e := gob.NewEncoder(w)
+	 	e.Encode(lastIncludedIndex)
+	 	e.Encode(lastIncludedTerm)
+	 	e.Encode(kv.kvMap)
+	 	e.Encode(kv.lastCommitTable)
+	 	data_snapshot := w.Bytes()
 
-		kv.rf.TruncateLogs(lastIncludedIndex, lastIncludedTerm)
+	 	// Note: Don't lock communication channes with raft from KVserver
+	 	kv.mu.Unlock()
+	 	// Send data to raft to 1) persist data and 2) truncate log. 
+		kv.rf.TruncateLogs(lastIncludedIndex, lastIncludedTerm, data_snapshot)
 
 	}
 
-}
-
-
-// Take a snapshot of the current server state. 
-func (kv *RaftKV) persistSnapshot(lastIncludedIndex int, lastIncludedTerm int) {
-
-	 w := new(bytes.Buffer)
-	 e := gob.NewEncoder(w)
-	 e.Encode(kv.kvMap)
-	 e.Encode(lastIncludedIndex)
-	 e.Encode(lastIncludedTerm)
-	 data := w.Bytes()
-	 kv.persister.SaveSnapshot(data)
 }
 
 // Load the data from the last stored snapshot. 
@@ -465,11 +485,15 @@ func (kv *RaftKV) readPersistSnapshot(data []byte) {
 
 	 r := bytes.NewBuffer(data)
 	 d := gob.NewDecoder(r)
-	 d.Decode(&kv.kvMap)
+
+	 // DiscardlastIncludedIndex and lastIncludedTerm
 	 var lastIncludedIndex int
-	 d.Decode(&lastIncludedIndex)
 	 var lastIncludedTerm int
+	 d.Decode(&lastIncludedIndex)
 	 d.Decode(&lastIncludedTerm)
+	 d.Decode(&kv.kvMap)
+	 d.Decode(&kv.lastCommitTable)
+
 }
 
 func (kv *RaftKV) checkCommitTable_beforeRaft(thisCommand Op) (inCommitTable bool, returnValue string) {
@@ -483,15 +507,15 @@ func (kv *RaftKV) checkCommitTable_beforeRaft(thisCommand Op) (inCommitTable boo
 
 	// Return RPC with correct value: If the client is known, and this server already processed the RPC, send the return value to the client.
 	// Note: Even if Server is not leader, respond with the information client needs for this specific request.
-	if ok && (prevCommitted.requestID == thisCommand.RequestID) {
+	if ok && (prevCommitted.RequestID == thisCommand.RequestID) {
 
 		// Note: At this point, it's unkown if this server is the leader.
 		// However, if the server has the right information for the client, send it.
 		inCommitTable = true
-		returnValue = prevCommitted.returnValue
+		returnValue = prevCommitted.ReturnValue
 
 		// Catch Errors: Received an old RequestID (behind the one already committed)
-	} else if ok && (prevCommitted.requestID > thisCommand.RequestID) {
+	} else if ok && (prevCommitted.RequestID > thisCommand.RequestID) {
 		kv.DPrintf1("Error at KVServer%d: prevCommitted: %+v and thisCommand: %+v \n", kv.me, prevCommitted, thisCommand)
 		kv.DError("Error checkCommitTable_beforeRaft: Based on CommitTable, new RequestID is too old. This can happen if RPC very delayed. \n")
 		// If this happens, just reply to the RPC with wrongLeader (or do nothing). The client won't even be listening for this RPC anymore
@@ -503,7 +527,7 @@ func (kv *RaftKV) checkCommitTable_beforeRaft(thisCommand Op) (inCommitTable boo
 		// 2) The only reason the client has a higher RequestID than the leader is a) if the server thinks they are the leader,
 		// but are not or b) the server just became leader, and needs to commit a log in it's own term. If it cannot get a new log
 		// then it cannot move forward.
-	} else if (!ok) || (prevCommitted.requestID < thisCommand.RequestID) {
+	} else if (!ok) || (prevCommitted.RequestID < thisCommand.RequestID) {
 		inCommitTable = false
 		returnValue = ""
 
@@ -527,18 +551,18 @@ func (kv *RaftKV) checkCommitTable_afterRaft(thisCommand Op) (commitExists bool,
 
 	// Operation Previously Committed: Don't re-apply, and reply to RPC if necessary
 	// Check if: 1) exists in table and 2) if same RequestID
-	if ok && (prevCommitted.requestID == thisCommand.RequestID) {
+	if ok && (prevCommitted.RequestID == thisCommand.RequestID) {
 		commitExists = true
-		returnValue = prevCommitted.returnValue
+		returnValue = prevCommitted.ReturnValue
 
 		// Out of Order RPCs: Throw Error
-	} else if ok && ((prevCommitted.requestID > thisCommand.RequestID) || prevCommitted.requestID+1 < thisCommand.RequestID) {
+	} else if ok && ((prevCommitted.RequestID > thisCommand.RequestID) || prevCommitted.RequestID+1 < thisCommand.RequestID) {
 		kv.DError("Error checkCommitTable_afterRaft: Out of order commit reached the commitTable. \n")
 		// Right error since correctness means we cannot have out of order commits.
 
 		// Operation never committed: Execute operation, and reply.
 		// Enter if: 1) Client never committed before or 2) the requestID is the next expected id
-	} else if (!ok) || (prevCommitted.requestID+1 == thisCommand.RequestID) {
+	} else if (!ok) || (prevCommitted.RequestID+1 == thisCommand.RequestID) {
 		commitExists = false
 		returnValue = ""
 

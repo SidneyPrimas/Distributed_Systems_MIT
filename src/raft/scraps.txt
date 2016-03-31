@@ -1,0 +1,25 @@
+			rf.dPrintf_now("Warning: Handling edge case described in Step 6.")
+
+			// If match, only retain log entries following it, and reply. 
+			rf.dPrintf2("Server%d, Term%d, State: %s, Action: Truncate Logs. newLastIncludedIndex => %d, rf.lastIncludedIndex => %d, rf.log => %v ",rf.me, rf.currentTerm, rf.stateToString(), newLastIncludedIndex, rf.lastIncludedIndex, rf.log )
+			trunc_snapIndex_start := newLastIncludedIndex - rf.lastIncludedIndex
+			trunc_snapIndex_end := len(rf.log)
+			rf.log = rf.log[trunc_snapIndex_start:trunc_snapIndex_end]
+			rf.persist()
+
+			// After truncating log, update snapshot variables in rf structure
+			rf.lastIncludedIndex =  newLastIncludedIndex
+			rf.lastIncludedTerm = newLastIncludedTerm
+
+			// Update KVServer with snapshot (done synchronously)
+			rf.dPrintf1("Server%d, Term%d, State: %s, Action: Send Snapshot to KVServer (truncated log)\n", rf.me, rf.currentTerm, rf.stateToString())
+			rf.sendSnapshotToServer(args.SnapshotData)
+
+			//After updating state machine, update applied and committed variables. 
+			if (rf.lastApplied < newLastIncludedIndex) {
+				rf.lastApplied = newLastIncludedIndex
+			}
+
+			if (rf.commitIndex < newLastIncludedIndex) {
+				rf.commitIndex = newLastIncludedIndex
+			}
