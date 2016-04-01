@@ -10,7 +10,7 @@ mkdir -p Test
 for test in "${TESTS[@]}"
 do
   mkdir -p Test/${test}
-  for i in {11..20}
+  for i in {1..2}
   do
     go test -run=${test} &> ./Test/${test}/${i}.log
   done

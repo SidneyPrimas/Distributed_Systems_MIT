@@ -1677,7 +1677,7 @@ func (rf *Raft) dPrintf2(format string, a ...interface{}) (n int, err error) {
 }
 
 func (rf *Raft) dPrintf_now(format string, a ...interface{}) (n int, err error) {
-	if rf.debug >= 0 {
+	if rf.debug >= 1 {
 		log.Printf(format + "\n", a...)
 	}
 	return
