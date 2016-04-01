@@ -444,6 +444,9 @@ func (kv *RaftKV) processCommits() {
 				kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
 			}
 
+			// Indicate that the applyCh has been freed. 
+			//close(commitMsg.CompleteSignal_chan)
+
 
 		case <-kv.shutdownChan:
 			return

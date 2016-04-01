@@ -35,11 +35,12 @@ const debug_break = "-----------------------------------------------------------
 // tester) on the same server, via the applyCh passed to Make().
 //
 type ApplyMsg struct {
-	Index       int
-	Term 		int
-	Command     interface{}
-	UseSnapshot bool   // ignore for lab2; only used in lab3
-	Snapshot    []byte // ignore for lab2; only used in lab3
+	Index       			int
+	Term 					int
+	Command     			interface{}
+	CompleteSignal_chan		chan int
+	UseSnapshot 			bool   // ignore for lab2; only used in lab3
+	Snapshot    			[]byte // ignore for lab2; only used in lab3
 }
 
 // Create a simple system to store the raft state (that is human redable)
@@ -718,16 +719,24 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
 
 				rf.lastApplied = rf.lastApplied +1
 
+				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Going to send to KVRaft for execution. rf.lastApplied => %d, realLogLength => %d, len(log) => %d", rf.me, rf.currentTerm, rf.stateToString(), rf.lastApplied, rf.realLogLength(), len(rf.log))	
+
+				applyComplete := make(chan int)
+
 				msgOut := ApplyMsg{}
 				msgOut.Index = rf.lastApplied
+				msgOut.CompleteSignal_chan = applyComplete
 				msgOut.Term = rf.getLogEntry(rf.lastApplied-1).Term
 				msgOut.Command = rf.getLogEntry(rf.lastApplied-1).Command
 				rf.mu.Unlock()
 
 				applyCh <- msgOut
+				// Use to block until apply operation on Raft is complete. 
+				<- applyComplete
 
-				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, msgSent => %v", rf.me, rf.currentTerm, rf.stateToString(), rf.lastApplied, msgOut)	
 				rf.mu.Lock()
+				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, msgSent => %v", rf.me, rf.currentTerm, rf.stateToString(), rf.lastApplied, msgOut)	
+				
 				
 			}
 			rf.mu.Unlock()
@@ -1221,7 +1230,7 @@ func (rf *Raft) HandleSnapshot(args InstallSnapshotArgs, reply *InstallSnapshotR
 			// 	// Note: We can never role back lastApplied. Once a log is applied, that's final. 
 			// 	// We should also never role back rf.comitINdex
 			// 	if (rf.lastApplied > rf.lastIncludedIndex) || (rf.commitIndex > rf.lastIncludedIndex){
-			// 		rf.error("Error in HandleSnapshot: We roled back lastApplied.")
+			// 		rf.error("Error in HandleSnapshot: We roled back lastApplied during case 6.")
 			// 	}
 
 			// 	//After updating state machine, update applied and committed variables. 
@@ -1244,6 +1253,7 @@ func (rf *Raft) HandleSnapshot(args InstallSnapshotArgs, reply *InstallSnapshotR
 	// Protocol 5: Save Snapshot File (save in KVServer)
 	rf.persister.SaveSnapshot(args.SnapshotData)
 
+
 	// Protocol 7: "Discard Entire Log"
 	// If match, only retain log entries following it, and reply. 
 	rf.log = make([]RaftLog, 0)
@@ -1260,8 +1270,8 @@ func (rf *Raft) HandleSnapshot(args InstallSnapshotArgs, reply *InstallSnapshotR
 	// Error checking for debugging
 	// Note: We can never role back lastApplied. Once a log is applied, that's final. 
 	// We should also never role back rf.comitINdex
-	if (rf.lastApplied > rf.lastIncludedIndex) || (rf.commitIndex > rf.lastIncludedIndex){
-		rf.error("Error in HandleSnapshot: We roled back lastApplied.")
+	if (rf.lastApplied > newLastIncludedIndex) || (rf.commitIndex > newLastIncludedIndex){
+		rf.error("Error in HandleSnapshot: We roled back lastApplied after truncating full log., rf.lastApplied => %d, rf.commitIndex => %d,  rf.lastIncludedIndex => %d", rf.lastApplied, rf.commitIndex ,rf.lastIncludedIndex )
 	}
 
 	// After updating state machine, update applied and committed variables.
@@ -1548,6 +1558,11 @@ func (rf *Raft) TruncateLogs(lastIncludedIndex int, lastIncludedTerm int, data_s
 	rf.log = rf.log[trunc_snapIndex_start:trunc_snapIndex_end]
 	rf.dPrintf2("Server%d: After Truncation. rf.log => %+v, Raft Size => %d \n", rf.me, rf.log, rf.persister.RaftStateSize())
 
+	if (lastIncludedIndex != rf.lastApplied){
+		rf.error("Error: lastIncludedIndex => %d, rf.lastApplied => %d ", lastIncludedIndex, rf.lastApplied)
+	}
+	
+
 	// After truncating log, update snapshot variables in rf structure
 	rf.lastIncludedIndex =  lastIncludedIndex
 	rf.lastIncludedTerm = lastIncludedTerm
@@ -1572,7 +1587,7 @@ func (rf *Raft) getLogEntry(i int) RaftLog {
 	realIndex := i +1
 
 	if (rf.indexNotInLog(realIndex)) {
-		rf.dPrintf_now("Error in getLogEntry: Index is not included in Log. Server%d realIndex => %d, rf.lastIncludedIndex => %d ", rf.me, realIndex, rf.lastIncludedIndex)
+		rf.dPrintf_now("Error in getLogEntry: Index is not included in Log. Server%d realIndex => %d, rf.lastIncludedIndex => %d, len(log) ", rf.me, realIndex, rf.lastIncludedIndex, len(rf.log))
 		panic("Error in getLogEntry")
 	}
 
