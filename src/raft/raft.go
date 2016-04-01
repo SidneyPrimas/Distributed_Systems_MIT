@@ -231,7 +231,7 @@ func (rf *Raft) manageRaftInterrupts() {
 									myState_temp := rf.myState
 									myNextIndex_temp := rf.nextIndex[server]
 									lastIncludedIndex_temp := rf.lastIncludedIndex
-									rf.mu.Unlock()
+									
 
 									// Critical: These state checks (to make sure the servers state has not changed) need to be made 
 									// here since 1) we just recieved the lock (so other threads could be running in between), 
@@ -251,6 +251,8 @@ func (rf *Raft) manageRaftInterrupts() {
 									} else {
 										loop = false
 									}
+
+									rf.mu.Unlock()
 								}
 
 							}
@@ -290,7 +292,7 @@ func (rf *Raft) manageRaftInterrupts() {
 							rf.mu.Lock()
 							myNextIndex_temp := rf.nextIndex[server]
 							lastIncludedIndex_temp := rf.lastIncludedIndex
-							rf.mu.Unlock()
+							
 
 							// If nextIndex doesn't exists in Log, send a snapshot. 
 							// Otherwise, send the log entries directly. 
@@ -299,6 +301,8 @@ func (rf *Raft) manageRaftInterrupts() {
 							} else {
 								rf.updateFollowerLogs(server)
 							}
+
+							rf.mu.Unlock()
 
 						}(thisServer)
 
@@ -454,17 +458,19 @@ func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs, reply *AppendE
 	// Default reply for ConflictIndex. 
 	reply.ConflictingIndex = 1 // Except if we explicitly set ConflictIndex (due to false replySuccess), it won't be used by Leader. 
 
-
+	// || (args.PrevLogIndex <= rf.lastIncludedIndex
 
 	// Protocol (2A): Determine if the previous entry has the same term and index. If it doesn't, return false. 
 	// If Leader's PrevLogIndex is greater than highest index in Follower's log, the index cannot be the same. 
-	if  (args.PrevLogIndex > rf.realLogLength()) {
+	if  (args.PrevLogIndex > rf.realLogLength() ) {
 		reply.Success = false
 
-		// If the log is empty, set the ConlictIndex to the first available log entry. 
-		// Otherwise, set it to the last log entry.
-		if (len(rf.log) == 0) {
+		// If the log is empty or args.PrevLogIndex has been truncated in a snapshot, set the ConlictIndex to the first available log entry. 
+		// Note: The way  args.PrevLogIndex be before the follower's log is: 1) it has been recently truncated by a snapshot taken by the folloder or
+		// 2) the leader send an installSnapshot, and the RPCs are delay/out-of-order. 
+		if (len(rf.log) == 0) ||  (args.PrevLogIndex <= rf.lastIncludedIndex) {
 			reply.ConflictingIndex = rf.lastIncludedIndex + 1
+		// If args.PrevLogIndex is higher than the highest index of the follower's log, send back the last log. 
 		} else {
 			reply.ConflictingIndex = rf.realLogLength()
 		}
@@ -576,8 +582,6 @@ func (rf *Raft) getFirstIndexInTerm(initialIndex int, conflictingTerm int) (firs
 // Protocol: Also used for hearbeats
 func (rf *Raft) updateFollowerLogs(server int)  (msg_received bool, returnedTerm int)  {
 
-	//Lock_updateFollowerLogs_beginning
-	rf.mu.Lock()
 	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Leader send AppendEntry RPC  to Server%d. matchIndex => %v, nextIndex => %v \n" ,rf.me, rf.currentTerm, rf.stateToString(), server, rf.matchIndex, rf.nextIndex)
 
 	// Setup outgoing arguments.
@@ -616,7 +620,6 @@ func (rf *Raft) updateFollowerLogs(server int)  (msg_received bool, returnedTerm
 
 	//Deferred lock for concurrency issues
 	rf.mu.Lock()
-	defer rf.mu.Unlock()
 	
 	// Critical: These state checks (to make sure the servers state has not changed) need to be made 
 	// here since 1) we just recieved the lock (so other threads could be running in between), 
@@ -639,18 +642,19 @@ func (rf *Raft) updateFollowerLogs(server int)  (msg_received bool, returnedTerm
 				rf.dPrintf2("Server%d, Term%d, State: %s, Action: Ignored updating matchIndex for Server%d. Received old matchIndex matchIndex => %v, final_index_sending => %d \n", rf.me, rf.currentTerm, rf.stateToString(), server, rf.matchIndex, final_index_sending)
 			}
 
-			rf.dPrintf1("Server%d, Term%d, State: %s, Action: Update Match Index matchIndex => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.matchIndex)
+			rf.dPrintf_now("Server%d, Term%d, State: %s, Action: Update Match Index matchIndex => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.matchIndex)
 
 
 			rf.checkCommitStatus(&reply)
 
 		} else if (!reply.Success) {
 			
-			rf.dPrintf1("Server%d, Term%d, State: %s, Action: Optimization Update, ConflictingIndex => %v, rf.log => %v \n", rf.me, rf.currentTerm, rf.stateToString(), reply.ConflictingIndex, rf.log)
 
 			rf.dPrintf2("Server%d, Action: Update rf.nextIndex. Old nextIndex => %v", rf.me, rf.nextIndex)
 			rf.nextIndex[server] = reply.ConflictingIndex
 			rf.dPrintf2("Server%d, Action: Update rf.nextIndex. New nextIndex => %v", rf.me, rf.nextIndex)
+
+			rf.dPrintf_now("Server%d, Term%d, State: %s, Action: Optimization Update (after nextIndex update on leader), reply.ConflictingIndex => %+v, rf.nextIndex => %v \n", rf.me, rf.currentTerm, rf.stateToString(), reply.ConflictingIndex, rf.nextIndex)
 			
 		}
 
@@ -664,7 +668,6 @@ func (rf *Raft) updateFollowerLogs(server int)  (msg_received bool, returnedTerm
 func (rf *Raft) updateFollowerState(server int)  (msg_received bool, returnedTerm int)  {
 	
 	// SETUP SENDSNAPSHOT VARIABLES
-	rf.mu.Lock()
 	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Leader send Snapshot RPC to Server%d \n" ,rf.me, rf.currentTerm, rf.stateToString(), server)
 
 	args := InstallSnapshotArgs{
@@ -684,6 +687,8 @@ func (rf *Raft) updateFollowerState(server int)  (msg_received bool, returnedTer
 	// SEND SNAPASHOT RPC
 	var reply InstallSnapshotReply
 	msg_received = rf.SendSnapshot(server, args, &reply)
+
+	rf.mu.Lock()
 
 	// Note: We only update matchIndex through protocol in AppendEntries (safter and simpler)
 
@@ -714,7 +719,9 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
 				msgOut.Index = rf.lastApplied
 				msgOut.Term = rf.getLogEntry(rf.lastApplied-1).Term
 				msgOut.Command = rf.getLogEntry(rf.lastApplied-1).Command
+				rf.mu.Unlock()
 				applyCh <- msgOut
+				rf.mu.Lock()
 				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, msgSent => %v, rf.log => %+v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.lastApplied, msgOut, rf.log)	
 			}
 			rf.mu.Unlock()
@@ -1158,7 +1165,7 @@ func (rf *Raft) HandleSnapshot(args InstallSnapshotArgs, reply *InstallSnapshotR
 		// Note: If this occurs, how does the leader who receives the RPC handle the case.  
 		// Only can happen if follower recieves a very delayed RPC (and has processed a previous sendSnapshot RPC in the meantime.)
 		// Note: Equal sign included in if statement because might discard future logs. 
-		rf.error("Error: Leader sent RPC to follower. But, follower already had a snapshot that is more advanced. rf.lastIncludedIndex => %d, newLastIncludedIndex => %d", rf.lastIncludedIndex, newLastIncludedIndex)
+		//rf.error("Error: Leader sent RPC to follower. But, follower already had a snapshot that is more advanced. rf.lastIncludedIndex => %d, newLastIncludedIndex => %d", rf.lastIncludedIndex, newLastIncludedIndex)
 		return
 	}
 
@@ -1172,47 +1179,47 @@ func (rf *Raft) HandleSnapshot(args InstallSnapshotArgs, reply *InstallSnapshotR
 		// Note: Check if the terms match for lastIncludedTerm and entry in rf.log at the newLastIncludedIndex
 		if (newLastIncludedTerm == rf.getLogEntry(newLastIncludedIndex-1).Term) {
 
-			rf.dPrintf_now("Warning: Handling edge case described in Step 6.")
+			rf.dPrintf_now("Warning on Server%d: Handling edge case described in Step 6.", rf.me)
 
 			// Note: Make sure that we are not roling back map with snapshot. If follower applied more logs than snapshot, do 
 			// not install the snapshot. Use commitIndex since don't want to role back commitIndex either. 
-			// if (rf.commitIndex <= newLastIncludedIndex) {
+			if (rf.commitIndex <= newLastIncludedIndex) {
 
-			// 	// At this point, we know that the snapshot will be applied to the state machine. 
-			// 	reply.Applied = true
+				// At this point, we know that the snapshot will be applied to the state machine. 
+				reply.Applied = true
 
-			// 	// Protocol 5: Save Snapshot File (save in KVServer)
-			// 	rf.persister.SaveSnapshot(args.SnapshotData)
+				// Protocol 5: Save Snapshot File (save in KVServer)
+				rf.persister.SaveSnapshot(args.SnapshotData)
 
-			// 	// If match, only retain log entries following it, and reply. 
-			// 	rf.dPrintf2("Server%d, Term%d, State: %s, Action: Truncate Logs. newLastIncludedIndex => %d, rf.lastIncludedIndex => %d, rf.log => %v ",rf.me, rf.currentTerm, rf.stateToString(), newLastIncludedIndex, rf.lastIncludedIndex, rf.log )
-			// 	trunc_snapIndex_start := newLastIncludedIndex - rf.lastIncludedIndex
-			// 	trunc_snapIndex_end := len(rf.log)
-			// 	rf.log = rf.log[trunc_snapIndex_start:trunc_snapIndex_end]
-			// 	// After truncating log, update snapshot variables in rf structure
-			// 	rf.lastIncludedIndex =  newLastIncludedIndex
-			// 	rf.lastIncludedTerm = newLastIncludedTerm
-			// 	rf.persist()
+				// If match, only retain log entries following it, and reply. 
+				rf.dPrintf2("Server%d, Term%d, State: %s, Action: Truncate Logs. newLastIncludedIndex => %d, rf.lastIncludedIndex => %d, rf.log => %v ",rf.me, rf.currentTerm, rf.stateToString(), newLastIncludedIndex, rf.lastIncludedIndex, rf.log )
+				trunc_snapIndex_start := newLastIncludedIndex - rf.lastIncludedIndex
+				trunc_snapIndex_end := len(rf.log)
+				rf.log = rf.log[trunc_snapIndex_start:trunc_snapIndex_end]
+				// After truncating log, update snapshot variables in rf structure
+				rf.lastIncludedIndex =  newLastIncludedIndex
+				rf.lastIncludedTerm = newLastIncludedTerm
+				rf.persist()
 
 
-			// 	// Update KVServer with snapshot (done synchronously)
-			// 	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Send Snapshot to KVServer (truncated log)\n", rf.me, rf.currentTerm, rf.stateToString())
-			// 	rf.sendSnapshotToServer(args.SnapshotData)
+				// Update KVServer with snapshot (done synchronously)
+				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Send Snapshot to KVServer (truncated log)\n", rf.me, rf.currentTerm, rf.stateToString())
+				rf.sendSnapshotToServer(args.SnapshotData)
 
-			// 	// Error checking for debugging
-			// 	// Note: We can never role back lastApplied. Once a log is applied, that's final. 
-			// 	// We should also never role back rf.comitINdex
-			// 	if (rf.lastApplied > rf.lastIncludedIndex) || (rf.commitIndex > rf.lastIncludedIndex){
-			// 		rf.error("Error in HandleSnapshot: We roled back lastApplied.")
-			// 	}
+				// Error checking for debugging
+				// Note: We can never role back lastApplied. Once a log is applied, that's final. 
+				// We should also never role back rf.comitINdex
+				if (rf.lastApplied > rf.lastIncludedIndex) || (rf.commitIndex > rf.lastIncludedIndex){
+					rf.error("Error in HandleSnapshot: We roled back lastApplied.")
+				}
 
-			// 	//After updating state machine, update applied and committed variables. 
-			// 	rf.lastApplied = newLastIncludedIndex
-			//	rf.commitIndex = newLastIncludedIndex
+				//After updating state machine, update applied and committed variables. 
+				rf.lastApplied = newLastIncludedIndex
+				rf.commitIndex = newLastIncludedIndex
 		
-			// 	return
+				return
 
-			// }	
+			}	
 
 			// If the snapshot is in the log but the appliedEntries are ahead of the lastIncludedIndex of the snapshot, 
 			// then we canno apply snapshot. 
@@ -1277,7 +1284,7 @@ func (rf *Raft) SendSnapshot(server int, args InstallSnapshotArgs, reply *Instal
 	  	
 	  	// Use for debugging purposes
 	  	if (!ok || !reply.Applied || (reply.Term > rf.currentTerm)) {
-	  		rf.dPrintf_now("Warning: Sent snapshot to Follower. But, follower did not apply the snapshot. ")
+	  		rf.dPrintf_now("Warning on Server%d: Sent snapshot to Follower. But, follower did not apply the snapshot. ", rf.me)
 	  	}
 
 		if(ok) {
@@ -1372,6 +1379,7 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 // turn off debug output from this instance.
 //
 func (rf *Raft) Kill() {
+
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
@@ -1409,7 +1417,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.me = me
 	rf.mu = sync.Mutex{}
 	rf.applyCh = applyCh
-	rf.debug = 2
+	rf.debug = 0
 	// Needed to maintain appropriate concurrency 
 	// Note: This case probably not necessary, but included for saftey 
 	rf.mu.Lock()
@@ -1499,7 +1507,7 @@ func (rf *Raft) TruncateLogs(lastIncludedIndex int, lastIncludedTerm int, data_s
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
-	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Truncate Logs. lastIncludedIndex => %d, lastIncludedTerm => %d \n" , rf.me, rf.currentTerm, rf.stateToString(), lastIncludedIndex, lastIncludedTerm)
+	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Truncate Logs. lastIncludedIndex => %d, lastIncludedTerm => %d, rf.lastIncludedIndex => %d \n" , rf.me, rf.currentTerm, rf.stateToString(), lastIncludedIndex, lastIncludedTerm, rf.lastIncludedIndex)
 	
 	// Store the snapshot
 	rf.persister.SaveSnapshot(data_snapshot)
@@ -1517,6 +1525,8 @@ func (rf *Raft) TruncateLogs(lastIncludedIndex int, lastIncludedTerm int, data_s
 	rf.lastIncludedTerm = lastIncludedTerm
 	rf.persist()
 
+
+
 }
 
 func (rf *Raft) sendSnapshotToServer(snapshot_data []byte) {
@@ -1533,7 +1543,8 @@ func (rf *Raft) getLogEntry(i int) RaftLog {
 	realIndex := i +1
 
 	if (rf.indexNotInLog(realIndex)) {
-		rf.error("Server%d: getLogEntry: Index is not included in Log. realIndex => %d, rf.lastIncludedIndex => %d ", rf.me, realIndex, rf.lastIncludedIndex)
+		rf.dPrintf_now("Error in getLogEntry: Index is not included in Log. Server%d realIndex => %d, rf.lastIncludedIndex => %d ", rf.me, realIndex, rf.lastIncludedIndex)
+		panic("Error in getLogEntry")
 	}
 
 	return rf.log[snap_i]

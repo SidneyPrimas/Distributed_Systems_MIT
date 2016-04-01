@@ -295,7 +295,7 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.me = me
 	kv.maxraftstate = maxraftstate
 	kv.persister = persister
-	kv.debug = 2
+	kv.debug = 0
 
 	// Your initialization code here.
 	kv.mu = sync.Mutex{}

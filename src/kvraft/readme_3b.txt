@@ -18,6 +18,10 @@ To Do:
 + Implement shorter rpc timeouts for client/server
 + IS IT OKAY TO PERSIST UNLCOK BERFORE WE PERSIST SNAPSTHO
 
+Important: 
++ Possible Deadlock: Currently, we have a possible deadlock situation when: 1) a commit has been applied to the channel. When we are waiting for KVServer to execute teh commit, we don't lock the applyCh in case we need to create a snapshot (so we can call TruncateLogs), 2) So, the scheduler is free to process incoming RPCs, including an incoming snapshot. When the install Snapshot is handled, we grab the lock and then wait to apply the snapshot to the applyCh. Then, we have a deadlock. 
+++ The solution: Create a seperate lock that makes sure that when we are waiting for a applyCh response we don't process installSnapshot 
+
 Question: 
 + How do we access information requested by raft but stored in kvServer?
 + When passing an array from KVserver to Raft, do I need to copy it (look in snapshotData)s

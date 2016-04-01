@@ -8,6 +8,8 @@ import "math/rand"
 import "log"
 import "strings"
 import "sync/atomic"
+import "os"
+import "os/signal"
 
 // The tester generously allows solutions to complete elections in one second
 // (much more than the paper's range of timeouts).
@@ -130,7 +132,13 @@ func partitioner(t *testing.T, cfg *config, ch chan bool, done *int32) {
 // size) shouldn't exceed 2*maxraftstate.
 func GenericTest(t *testing.T, tag string, nclients int, unreliable bool, crash bool, partitions bool, maxraftstate int) {
 
-
+	// Sidney: Go Routine to trace down live or dead locks
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+	go func() {
+	    <-signalChan
+	    panic("ctrl c")
+	}()
 
 	const nservers = 5
 	cfg := make_config(t, tag, nservers, unreliable, maxraftstate)
