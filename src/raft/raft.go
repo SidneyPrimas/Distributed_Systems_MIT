@@ -81,6 +81,8 @@ type RaftLog struct {
 //
 type Raft struct {
 	mu        sync.Mutex
+	// Mutex to deal with deadlocks in communicating betweeing Raft and KVserver
+	mu_comm 	sync.Mutex
 	peers     []*labrpc.ClientEnd
 	persister *Persister
 	me        int // index into peers[]
@@ -458,11 +460,10 @@ func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs, reply *AppendE
 	// Default reply for ConflictIndex. 
 	reply.ConflictingIndex = 1 // Except if we explicitly set ConflictIndex (due to false replySuccess), it won't be used by Leader. 
 
-	// || (args.PrevLogIndex <= rf.lastIncludedIndex
 
 	// Protocol (2A): Determine if the previous entry has the same term and index. If it doesn't, return false. 
 	// If Leader's PrevLogIndex is greater than highest index in Follower's log, the index cannot be the same. 
-	if  (args.PrevLogIndex > rf.realLogLength() ) {
+	if  (args.PrevLogIndex > rf.realLogLength() || (args.PrevLogIndex < rf.lastIncludedIndex) ) {
 		reply.Success = false
 
 		// If the log is empty or args.PrevLogIndex has been truncated in a snapshot, set the ConlictIndex to the first available log entry. 
@@ -709,7 +710,9 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
   			// Gargabe Collection
   				return
 		default:
-			// Needed to maintain appropriate concurrency 
+			// mu_comm lock ensures that raft doesn't take any mu lock that stops raft from servicing TruncateLogs
+			// Specifically, while we hold mu_comm, we don't initiate handleSnapshot (since there are applyCh in the function)
+			rf.mu_comm.Lock()
 			rf.mu.Lock()
 			for(rf.commitIndex > rf.lastApplied) {
 
@@ -720,11 +723,15 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
 				msgOut.Term = rf.getLogEntry(rf.lastApplied-1).Term
 				msgOut.Command = rf.getLogEntry(rf.lastApplied-1).Command
 				rf.mu.Unlock()
+
 				applyCh <- msgOut
+
+				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, msgSent => %v", rf.me, rf.currentTerm, rf.stateToString(), rf.lastApplied, msgOut)	
 				rf.mu.Lock()
-				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, msgSent => %v, rf.log => %+v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.lastApplied, msgOut, rf.log)	
+				
 			}
 			rf.mu.Unlock()
+			rf.mu_comm.Unlock()
 
 			time.Sleep(time.Millisecond * rf.heartbeat_len)
 		}
@@ -1112,9 +1119,13 @@ type InstallSnapshotReply struct {
 
 func (rf *Raft) HandleSnapshot(args InstallSnapshotArgs, reply *InstallSnapshotReply) {
 
-	// Needed to maintain appropriate concurrency 
+	// Note: When writing on the applyCh (in CommitLogEntries), we cannot 
+	rf.mu_comm.Lock()
 	rf.mu.Lock()
-  	defer rf.mu.Unlock()
+	rf.mu.Unlock()
+	rf.mu_comm.Unlock()
+
+
   	rf.dPrintf2("Server%d, Term%d, State: %s, Action: Follower Receives Snapshot RPC. args => %v rf.log => %v ",rf.me, rf.currentTerm, rf.stateToString(),args, rf.log )
 			
 
@@ -1165,7 +1176,7 @@ func (rf *Raft) HandleSnapshot(args InstallSnapshotArgs, reply *InstallSnapshotR
 		// Note: If this occurs, how does the leader who receives the RPC handle the case.  
 		// Only can happen if follower recieves a very delayed RPC (and has processed a previous sendSnapshot RPC in the meantime.)
 		// Note: Equal sign included in if statement because might discard future logs. 
-		//rf.error("Error: Leader sent RPC to follower. But, follower already had a snapshot that is more advanced. rf.lastIncludedIndex => %d, newLastIncludedIndex => %d", rf.lastIncludedIndex, newLastIncludedIndex)
+		rf.dPrintf_now("Warning: Leader sent RPC to follower. But, follower already had a snapshot that is more advanced. rf.lastIncludedIndex => %d, newLastIncludedIndex => %d", rf.lastIncludedIndex, newLastIncludedIndex)
 		return
 	}
 
@@ -1183,43 +1194,43 @@ func (rf *Raft) HandleSnapshot(args InstallSnapshotArgs, reply *InstallSnapshotR
 
 			// Note: Make sure that we are not roling back map with snapshot. If follower applied more logs than snapshot, do 
 			// not install the snapshot. Use commitIndex since don't want to role back commitIndex either. 
-			if (rf.commitIndex <= newLastIncludedIndex) {
+			// if (rf.commitIndex <= newLastIncludedIndex) {
 
-				// At this point, we know that the snapshot will be applied to the state machine. 
-				reply.Applied = true
+			// 	// At this point, we know that the snapshot will be applied to the state machine. 
+			// 	reply.Applied = true
 
-				// Protocol 5: Save Snapshot File (save in KVServer)
-				rf.persister.SaveSnapshot(args.SnapshotData)
+			// 	// Protocol 5: Save Snapshot File (save in KVServer)
+			// 	rf.persister.SaveSnapshot(args.SnapshotData)
 
-				// If match, only retain log entries following it, and reply. 
-				rf.dPrintf2("Server%d, Term%d, State: %s, Action: Truncate Logs. newLastIncludedIndex => %d, rf.lastIncludedIndex => %d, rf.log => %v ",rf.me, rf.currentTerm, rf.stateToString(), newLastIncludedIndex, rf.lastIncludedIndex, rf.log )
-				trunc_snapIndex_start := newLastIncludedIndex - rf.lastIncludedIndex
-				trunc_snapIndex_end := len(rf.log)
-				rf.log = rf.log[trunc_snapIndex_start:trunc_snapIndex_end]
-				// After truncating log, update snapshot variables in rf structure
-				rf.lastIncludedIndex =  newLastIncludedIndex
-				rf.lastIncludedTerm = newLastIncludedTerm
-				rf.persist()
+			// 	// If match, only retain log entries following it, and reply. 
+			// 	rf.dPrintf2("Server%d, Term%d, State: %s, Action: Truncate Logs. newLastIncludedIndex => %d, rf.lastIncludedIndex => %d, rf.log => %v ",rf.me, rf.currentTerm, rf.stateToString(), newLastIncludedIndex, rf.lastIncludedIndex, rf.log )
+			// 	trunc_snapIndex_start := newLastIncludedIndex - rf.lastIncludedIndex
+			// 	trunc_snapIndex_end := len(rf.log)
+			// 	rf.log = rf.log[trunc_snapIndex_start:trunc_snapIndex_end]
+			// 	// After truncating log, update snapshot variables in rf structure
+			// 	rf.lastIncludedIndex =  newLastIncludedIndex
+			// 	rf.lastIncludedTerm = newLastIncludedTerm
+			// 	rf.persist()
 
 
-				// Update KVServer with snapshot (done synchronously)
-				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Send Snapshot to KVServer (truncated log)\n", rf.me, rf.currentTerm, rf.stateToString())
-				rf.sendSnapshotToServer(args.SnapshotData)
+			// 	// Update KVServer with snapshot (done synchronously)
+			// 	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Send Snapshot to KVServer (truncated log)\n", rf.me, rf.currentTerm, rf.stateToString())
+			// 	rf.sendSnapshotToServer(args.SnapshotData)
 
-				// Error checking for debugging
-				// Note: We can never role back lastApplied. Once a log is applied, that's final. 
-				// We should also never role back rf.comitINdex
-				if (rf.lastApplied > rf.lastIncludedIndex) || (rf.commitIndex > rf.lastIncludedIndex){
-					rf.error("Error in HandleSnapshot: We roled back lastApplied.")
-				}
+			// 	// Error checking for debugging
+			// 	// Note: We can never role back lastApplied. Once a log is applied, that's final. 
+			// 	// We should also never role back rf.comitINdex
+			// 	if (rf.lastApplied > rf.lastIncludedIndex) || (rf.commitIndex > rf.lastIncludedIndex){
+			// 		rf.error("Error in HandleSnapshot: We roled back lastApplied.")
+			// 	}
 
-				//After updating state machine, update applied and committed variables. 
-				rf.lastApplied = newLastIncludedIndex
-				rf.commitIndex = newLastIncludedIndex
+			// 	//After updating state machine, update applied and committed variables. 
+			// 	rf.lastApplied = newLastIncludedIndex
+			// 	rf.commitIndex = newLastIncludedIndex
 		
-				return
+			// 	return
 
-			}	
+			// }	
 
 			// If the snapshot is in the log but the appliedEntries are ahead of the lastIncludedIndex of the snapshot, 
 			// then we canno apply snapshot. 
@@ -1416,6 +1427,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.persister = persister
 	rf.me = me
 	rf.mu = sync.Mutex{}
+	rf.mu_comm = sync.Mutex{}
 	rf.applyCh = applyCh
 	rf.debug = 0
 	// Needed to maintain appropriate concurrency 
@@ -1468,11 +1480,28 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	 	d := gob.NewDecoder(r)
 
 	 	var lastIncludedIndex_check int
+	 	var lastIncludedTerm_check int
 		d.Decode(&lastIncludedIndex_check)
-		d.Decode(&rf.lastIncludedTerm)
+		d.Decode(&lastIncludedTerm_check)
 
-		if(lastIncludedIndex_check != rf.lastIncludedIndex) {
-			rf.error("Persistance Problem (conflicing persistance states)")
+		// Handle case where crashed between snapshot and raft persist. 
+		if(lastIncludedIndex_check > rf.lastIncludedIndex) {
+			rf.dPrintf_now("Warning: Snapshot persisted but crashed before persisting truncation of raft state.")
+
+
+			// Truncate all logs before lastIncludedIndex. Reassign log slice to rf.logs. Only keep log entries that are not part of the snapshot.
+			trunc_snapIndex_start := lastIncludedIndex_check - rf.lastIncludedIndex
+			trunc_snapIndex_end := len(rf.log)
+			rf.log = rf.log[trunc_snapIndex_start:trunc_snapIndex_end]
+
+			// After truncating log, update snapshot variables in rf structure
+			rf.lastIncludedIndex =  lastIncludedIndex_check
+			rf.lastIncludedTerm = lastIncludedTerm_check
+			rf.persist()
+
+		// Error Checking: The index persisted in raft should never be bigger than the index persisted in snapshot (we always persist snapshot first)
+		} else if (lastIncludedIndex_check < rf.lastIncludedIndex) {
+			rf.error("Error: We always persist the snapshot before we persist raft. ")
 		}
 
 		// Initialize to rf.lastIncludedIndex since we know this has been commited by snapshot. 
@@ -1517,12 +1546,12 @@ func (rf *Raft) TruncateLogs(lastIncludedIndex int, lastIncludedTerm int, data_s
 	trunc_snapIndex_start := lastIncludedIndex - rf.lastIncludedIndex
 	trunc_snapIndex_end := len(rf.log)
 	rf.log = rf.log[trunc_snapIndex_start:trunc_snapIndex_end]
-	rf.persist()
 	rf.dPrintf2("Server%d: After Truncation. rf.log => %+v, Raft Size => %d \n", rf.me, rf.log, rf.persister.RaftStateSize())
 
 	// After truncating log, update snapshot variables in rf structure
 	rf.lastIncludedIndex =  lastIncludedIndex
 	rf.lastIncludedTerm = lastIncludedTerm
+	// Also persist log changes above
 	rf.persist()
 
 

@@ -3,8 +3,8 @@
 set -x
 
 # add whatever tests you like here
- #TESTS=("TestBasic" "TestConcurrent" "TestUnreliable" "TestUnreliableOneKey" "TestOnePartition" "TestManyPartitionsOneClient" "TestManyPartitionsManyClients" "TestPersistOneClient" "TestPersistConcurrent" "TestPersistConcurrentUnreliable" "TestPersistPartition" "TestPersistPartitionUnreliable" "TestSnapshotRPC" "TestSnapshotRecover" "TestSnapshotRecoverManyClients")
-TESTS=("TestSnapshotRecoverManyClients")
+ #TESTS=("TestBasic" "TestConcurrent" "TestUnreliable" "TestUnreliableOneKey" "TestOnePartition" "TestManyPartitionsOneClient" "TestManyPartitionsManyClients" "TestPersistOneClient" "TestPersistConcurrent" "TestPersistConcurrentUnreliable" "TestPersistPartition" "TestPersistPartitionUnreliable" "TestSnapshotRPC" "TestSnapshotRecover" "TestSnapshotRecoverManyClients" "TestSnapshotUnreliable" "TestSnapshotUnreliableRecover")
+TESTS=("TestSnapshotUnreliable")
 
 mkdir -p Test
 for test in "${TESTS[@]}"
