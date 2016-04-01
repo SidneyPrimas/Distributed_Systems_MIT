@@ -351,12 +351,12 @@ func (rf *Raft) manageRaftInterrupts() {
 						go func(server int) {
 							
 							
-							
-							// Document if the vote was or was not granted.
-							voteGranted, msg_received, returnedTerm := rf.getVotes(server)
-							//Lock_select_votes
+							//Lock entire Vote logic (except actually sending the)
 							rf.mu.Lock()
 							defer rf.mu.Unlock()
+
+							// Document if the vote was or was not granted.
+							voteGranted, msg_received, returnedTerm := rf.getVotes(server)
 
 							// Critical: These state checks (to make sure the servers state has not changed) need to be made 
 							// here since 1) we just recieved the lock (so other threads could be running in between), 
@@ -408,8 +408,6 @@ func (rf *Raft) manageRaftInterrupts() {
 // Collects submitted votes, and determine election result. 
 func (rf *Raft) getVotes(server int)  (myvoteGranted bool, msg_received bool, returnedTerm int)  {
 
-	//Lock_getVotes
-	rf.mu.Lock()
 
 	//Return Variable: defaults to false
 	myvoteGranted  = false
@@ -421,21 +419,11 @@ func (rf *Raft) getVotes(server int)  (myvoteGranted bool, msg_received bool, re
 		LastLogIndex: rf.realLogLength()}
 
 	// If tree to ensure correct first-time LastLogTerm initialization 
-	if rf.realLogLength() == 0 {
-		args.LastLogTerm = -1
-	} else {
-		args.LastLogTerm = rf.getLogEntry(rf.realLogLength()-1).Term
-	}
-
-	//Lock_getVotes
-	rf.mu.Unlock()
+	args.LastLogTerm = rf.getConsistencyTerm(rf.realLogLength()-1)
 
 
 	var reply RequestVoteReply
 	msg_received = rf.sendRequestVote(server, args, &reply)
-	//Deferred lock for concurrency
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
 
 	// If we don't get a message back, then we cannot trust the data in reply. 
 	if (msg_received && (reply.Term == rf.currentTerm)) {
@@ -644,7 +632,7 @@ func (rf *Raft) updateFollowerLogs(server int)  (msg_received bool, returnedTerm
 				rf.dPrintf2("Server%d, Term%d, State: %s, Action: Ignored updating matchIndex for Server%d. Received old matchIndex matchIndex => %v, final_index_sending => %d \n", rf.me, rf.currentTerm, rf.stateToString(), server, rf.matchIndex, final_index_sending)
 			}
 
-			rf.dPrintf_now("Server%d, Term%d, State: %s, Action: Update Match Index matchIndex => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.matchIndex)
+			rf.dPrintf1("Server%d, Term%d, State: %s, Action: Update Match Index matchIndex => %v \n", rf.me, rf.currentTerm, rf.stateToString(), rf.matchIndex)
 
 
 			rf.checkCommitStatus(&reply)
@@ -656,7 +644,7 @@ func (rf *Raft) updateFollowerLogs(server int)  (msg_received bool, returnedTerm
 			rf.nextIndex[server] = reply.ConflictingIndex
 			rf.dPrintf2("Server%d, Action: Update rf.nextIndex. New nextIndex => %v", rf.me, rf.nextIndex)
 
-			rf.dPrintf_now("Server%d, Term%d, State: %s, Action: Optimization Update (after nextIndex update on leader), reply.ConflictingIndex => %+v, rf.nextIndex => %v \n", rf.me, rf.currentTerm, rf.stateToString(), reply.ConflictingIndex, rf.nextIndex)
+			rf.dPrintf1("Server%d, Term%d, State: %s, Action: Optimization Update (after nextIndex update on leader), reply.ConflictingIndex => %+v, rf.nextIndex => %v \n", rf.me, rf.currentTerm, rf.stateToString(), reply.ConflictingIndex, rf.nextIndex)
 			
 		}
 
@@ -858,12 +846,8 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 		thisLastLogIndex := rf.realLogLength()
 
 		// Setup variables: Handle case where log is not initialized. 
-		var thisLastLogTerm int
-		if (thisLastLogIndex == 0) {
-			thisLastLogTerm = -1
-		} else {
-			thisLastLogTerm = rf.getLogEntry(thisLastLogIndex-1).Term
-		}
+
+		thisLastLogTerm := rf.getConsistencyTerm(thisLastLogIndex-1)
 
 		// Determine if this server can vote for candidate: Vote when candidate has larger log term
 		// Protocol: Reset the election timer when granting a vote. 
@@ -916,7 +900,8 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 	//rf.mu.Unlock()
 	
 
-
+	// Unlock before sending the RPC
+	rf.mu.Unlock()
 
 	RPC_returned := make(chan bool)
 	myState_temp :=rf.getLockedState()
@@ -935,32 +920,32 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 	case <-time.After(time.Millisecond * 100):
 	  	ok = false
 	case ok = <-RPC_returned:
+
+	}
 	
-		 // Needed to maintain appropriate concurrency 
-		rf.mu.Lock()
-	  	defer rf.mu.Unlock()
+	 // Lock before receiving the RPC
+	rf.mu.Lock()
 
 
-		// Note: We don't need to check the server state or term before entering this if statement. This term/state checking 
-		// code block needs to be done when every RPC is exchanged. 
-		if(ok) {
-			// Protocol: As always, if this server's term is lagging, update the term. 
-			// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
-			if (reply.Term > rf.currentTerm) {
-				rf.currentTerm = reply.Term
-				rf.votedFor = -1
-				rf.persist()
+	// Note: We don't need to check the server state or term before entering this if statement. This term/state checking 
+	// code block needs to be done when every RPC is exchanged. 
+	if(ok) {
+		// Protocol: As always, if this server's term is lagging, update the term. 
+		// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
+		if (reply.Term > rf.currentTerm) {
+			rf.currentTerm = reply.Term
+			rf.votedFor = -1
+			rf.persist()
 
-				if (rf.myState == Leader)  {
-					//Transition from Leader to Follower: reset electionTimer
-					rf.myState = Follower
-					rf.dPrintf1("Server%d Stop Being a Leader from sendRequestVote Method \n %s \n", rf.me, debug_break)
-					rf.electionTimer.Reset(getElectionTimeout())
-					rf.heartbeatTimer.Stop()
-				} else if (rf.myState == Candidate) {
-					rf.myState = Follower
-					rf.electionTimer.Reset(getElectionTimeout())
-				}
+			if (rf.myState == Leader)  {
+				//Transition from Leader to Follower: reset electionTimer
+				rf.myState = Follower
+				rf.dPrintf1("Server%d Stop Being a Leader from sendRequestVote Method \n %s \n", rf.me, debug_break)
+				rf.electionTimer.Reset(getElectionTimeout())
+				rf.heartbeatTimer.Stop()
+			} else if (rf.myState == Candidate) {
+				rf.myState = Follower
+				rf.electionTimer.Reset(getElectionTimeout())
 			}
 		}
 	}
@@ -1677,7 +1662,7 @@ func (rf *Raft) dPrintf2(format string, a ...interface{}) (n int, err error) {
 }
 
 func (rf *Raft) dPrintf_now(format string, a ...interface{}) (n int, err error) {
-	if rf.debug >= 1 {
+	if rf.debug >= 0 {
 		log.Printf(format + "\n", a...)
 	}
 	return
