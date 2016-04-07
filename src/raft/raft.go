@@ -20,9 +20,7 @@ package raft
 import "sync"
 import "labrpc"
 import "time"
-import "math/rand"
 import "math"
-import "log"
 
 import "bytes"
 import "encoding/gob"
@@ -50,23 +48,6 @@ const (
 	Candidate 		RaftState = 2
 	Leader 			RaftState = 1
 )
-
-func (rf *Raft) stateToString() string {
-	theState := rf.myState
-
-	s:=""
-    if theState == 3 {
-    	s+="Follower"
-   	}
-   	if theState == 2 {
-    	s+="Candidate"
-   	}
-   	if theState == 1 {
-    	s+="Leader"
-   	}
-   	return s
-}
-
 
 
 // Important: Since the first log has an index of 1, we can just use len to find the index
@@ -125,28 +106,6 @@ type Raft struct {
 	snapshotData 		[]byte
 
 
-}
-
-
-// return currentTerm and whether this server
-// believes it is the leader.
-func (rf *Raft) GetState() (int, bool) {
-	 // Needed to maintain appropriate concurrency 
-	rf.mu.Lock()
-  	defer rf.mu.Unlock()
-
-	var term int
-	var isleader bool
-	
-	if (rf.myState == Leader) {
-		isleader = true
-	} else {
-		isleader = false
-	}
-
-	term = rf.currentTerm
-
-	return term, isleader
 }
 
 //
@@ -213,51 +172,8 @@ func (rf *Raft) manageRaftInterrupts() {
 						//  up-to-date as to the logIndex of the log of the leader. 
 						// Note: Implement Go routine to call all AppendEntries requests seperately. 
 						// Note: Since this is an infinite loop, make sure to close this when the other server doesn't respond. 
-						go func(server int) {
+						go rf.sendNewLog(thisServer, logIndex)
 
-							// Lock entire AppendEntry and Snapshot routine (except for RPC)
-							rf.mu.Lock()
-							defer rf.mu.Unlock()
-
-							// Note: While loop executes until server's log is at least as up to date as the logIndex.
-							// Note: Only can send these AppendEntries if server is the leader
-							var loop bool = true
-							// To begin, we assume that the server is functioning. If the server doesn't respond, exit the Go Routine
-							var msg_received bool = true
-							// To begin, we set temp_term to our current term. On future iterations, we need to make sure that the 
-							// received term is in the right term before we act on the data. 
-							var temp_term int = rf.currentTerm
-							for  loop {
-
-								select {
-								case <- rf.shutdownChan:
-									return
-								default:
-									
-									// Critical: These state checks (to make sure the servers state has not changed) need to be made 
-									// here since 1) we just recieved the lock (so other threads could be running in between), 
-									// and 2) we will use this data to make permenant state changes to our system. 
-									if ((logIndex >= rf.nextIndex[server]) && (rf.myState == Leader) && (msg_received)  && (rf.currentTerm == temp_term)) {
-
-										// If nextIndex doesn't exists in Log, send a snapshot. 
-										// Otherwise, send the log entries directly. 
-										if (rf.nextIndex[server] <= rf.lastIncludedIndex) {
-
-											msg_received, temp_term = rf.updateFollowerState(server)
-										} else {
-											msg_received, temp_term = rf.updateFollowerLogs(server)
-										}
-
-									// When the if statement isn't satisfied, exit the while loop
-									} else {
-										loop = false
-									}
-
-								}
-
-							}
-							
-						}(thisServer)
 					}
 				}
 			}
@@ -287,25 +203,7 @@ func (rf *Raft) manageRaftInterrupts() {
 					if (thisServer != rf.me) {
 
 						// Note: Go routine will have access to updated rf raft structure. 
-						go func(server int) {
-
-							// Lock entire heartbeat routine (except for RPC)
-							rf.mu.Lock()
-							defer rf.mu.Unlock()
-							
-
-							// If nextIndex doesn't exists in Log, send a snapshot. 
-							// Otherwise, send the log entries directly. 
-							if (rf.nextIndex[server] <= rf.lastIncludedIndex) {
-								rf.updateFollowerState(server)
-							} else {
-								rf.updateFollowerLogs(server)
-							}
-
-
-						}(thisServer)
-
-						
+						go rf.sendNewHeartbeat(thisServer)
 					}
 				}
 			}
@@ -344,47 +242,7 @@ func (rf *Raft) manageRaftInterrupts() {
 					//Send a RequestVote RPC to all Raft servers (accept our own)
 					if (thisServer != rf.me) {
 						// Important: Need to use anonymous function implementation so that: We can run multiple requests in parallel
-						go func(server int) {
-							
-							
-							//Lock entire Vote logic (except actually sending the)
-							rf.mu.Lock()
-							defer rf.mu.Unlock()
-
-							// Document if the vote was or was not granted.
-							voteGranted, msg_received, returnedTerm := rf.getVotes(server)
-
-							// Critical: These state checks (to make sure the servers state has not changed) need to be made 
-							// here since 1) we just recieved the lock (so other threads could be running in between), 
-							// and 2) we will use this data to make permenant state changes to our system. 
-							if (voteGranted && msg_received && (rf.myState == Candidate) && (rf.currentTerm == returnedTerm)) {
-								voteCount = voteCount +1
-								rf.dPrintf1("Server%d, Term%d, State: %s ,Action: Now have a total of %d votes. \n",rf.me, rf.currentTerm, rf.stateToString(), voteCount)
-							}
-
-							// Decide election
-						 	if ((voteCount >= rf.majority) && (rf.myState == Candidate)){
-						 		rf.dPrintf1("%s \n Server%d, Term%d, State: %s, Action: Elected New Leader, votes: %d\n", debug_break, rf.me, rf.currentTerm, rf.stateToString(), voteCount)
-						 		// Protocol: Transition to leader state. 
-						 		rf.myState = Leader
-						 		rf.electionTimer.Stop()
-						 		rf.heartbeatTimer.Reset(time.Millisecond * rf.heartbeat_len)
-
-						 		// Initialize leader specific variables. 
-						 		rf.nextIndex = make([]int, len(rf.peers))
-						 		rf.matchIndex =  make([]int, len(rf.peers))
-						 		for i := range(rf.nextIndex) {
-
-						 			rf.nextIndex[i] = rf.realLogLength() + 1
-						 			// Need to initialize to 0 (not rf.lastIncludedIndex) because we don't know which other servers 
-						 			// have applied up to this point on the snapshot. Other servers might be lagging. 
-
-						 			rf.matchIndex[i] = 0
-
-						 		}
-						 	}
-						 	
-						}(thisServer)
+						go rf.sendNewVote(thisServer, &voteCount)
 					}
 					
 				}
@@ -398,8 +256,8 @@ func (rf *Raft) manageRaftInterrupts() {
 
 		}
 	}
-
 }
+
 
 // Collects submitted votes, and determine election result. 
 func (rf *Raft) getVotes(server int)  (myvoteGranted bool, msg_received bool, returnedTerm int)  {
@@ -428,7 +286,6 @@ func (rf *Raft) getVotes(server int)  (myvoteGranted bool, msg_received bool, re
 		if (rf.myState == Candidate) {
 			//Count votes
 			myvoteGranted = reply.VoteGranted
-
 	 	}
  	}
 
@@ -537,31 +394,6 @@ func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs, reply *AppendE
 	}
 
 	return
-}
-
-
-func (rf *Raft) getFirstIndexInTerm(initialIndex int, conflictingTerm int) (firstIndex int) {
-
-	if (conflictingTerm == -1) {
-		rf.error("Error in getFirstIndexInTerm: When the follower's Term at args.PrevLogIndex is -1 (meaning a non-existent element in the log), the AppedEntries func should always be successful. \n")
-	}
-
-	// From the point in the log where the terms conflict (initialIndex), decrease the index until 
-	// 1) the begginging of the log (even after snapshotted) or 2) the term changes to a lower term.
-	firstIndex = initialIndex
-	for firstIndex > rf.lastIncludedIndex &&
-			conflictingTerm <= rf.getLogEntry(firstIndex-1).Term  {
-		firstIndex--
-	}
-
-	// We want the last index of a term. 
-	firstIndex++
-
-	if (rf.indexNotInLog(firstIndex)) {
-		rf.error("Error in getFirstIndexInTerm: The logs can only be roled back to the last log entry after truncation.");
-	}
-
-	return firstIndex
 }
 
 // Protocol: Used to send AppendEntries request to each server until the followr server updates. 
@@ -702,7 +534,7 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
 				// Only increase last applied *after*  it has successfully been executed in KVRaft. 
 				rf.lastApplied = rf.lastApplied +1
 
-				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, msgSent => %v", rf.me, rf.currentTerm, rf.stateToString(), rf.lastApplied, msgOut)	
+				rf.dPrintf2("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, msgSent => %v", rf.me, rf.currentTerm, rf.stateToString(), rf.lastApplied, msgOut)	
 				
 				
 			}
@@ -748,7 +580,7 @@ func (rf *Raft) checkCommitStatus(reply *AppendEntriesReply) {
 		// Update rf.commitIndex if it has changed from 0. 
 		if (tempCommitIndex != 0) && (rf.myState == Leader) {
 			rf.commitIndex = tempCommitIndex
-			rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Update commitIndex for Leader to %d, log => %v \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), rf.commitIndex, rf.log)
+			rf.dPrintf2("%s, Server%d, Term%d, State: %s, Action: Update commitIndex for Leader to %d \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), rf.commitIndex)
 		}
 	}
 
@@ -851,7 +683,7 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 	}
 
 	reply.Term = rf.currentTerm
-	//rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Method RequestVote Prcoessed, Reply => (%+v) \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), reply)
+	rf.dPrintf2("%s, Server%d, Term%d, State: %s, Action: Method RequestVote Prcoessed, Reply => (%+v) \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), reply)
 }
 
 
@@ -874,31 +706,18 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 //
 func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *RequestVoteReply) bool {
 
-	//rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Method sendRequestVote sent to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), server, args)
+	rf.dPrintf2("%s, Server%d, Term%d, State: %s, Action: Method sendRequestVote sent to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), server, args)
 	
+	// Ensure that server is still a candidate (before sending out RPC)
+	if (rf.myState != Candidate) {
+		// Never sent message becase server no longer is candidate. 
+		return false
+	}
+
 	// Unlock for sending RPC
 	rf.mu.Unlock()
 
-
-	RPC_returned := make(chan bool)
-	myState_temp :=rf.getLockedState()
-	if (myState_temp == Candidate) {
-
-		go func(goArgs RequestVoteArgs, goReply *RequestVoteReply,output chan bool) {
-			ok := rf.peers[server].Call("Raft.RequestVote", goArgs, goReply)
-			output <- ok
-		}(args, reply, RPC_returned)
-
-	}
-
-	//Allows for RPC Timeout
-	var ok bool = false
-	select {
-	case <-time.After(time.Millisecond * 100):
-	  	ok = false
-	case ok = <-RPC_returned:
-
-	}
+	ok := rf.sendRPC(server, "Raft.RequestVote", args, reply)
 	
 	 // Lock before receiving the RPC
 	rf.mu.Lock()
@@ -1024,28 +843,19 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 //
 func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *AppendEntriesReply) bool {
 
+
+	// Ensure that server is still a Leader (before sending out RPC)
+	if (rf.myState != Leader) {
+		// Never sent message becase server no longer is Leader. 
+		return false
+	}
+
 	// Unlock for sending RPC
 	rf.mu.Unlock()
 
-	myState_temp :=rf.getLockedState()
-	RPC_returned := make(chan bool)
-	if (myState_temp == Leader) {
-		
-		go func(goArgs AppendEntriesArgs, goReply *AppendEntriesReply,output chan bool) {
-			ok := rf.peers[server].Call("Raft.AppendEntries", goArgs, goReply)
-			output <- ok
-		}(args, reply, RPC_returned)
-	}
-
-	//Allows for RPC Timeout
-	var ok bool = false
-	select {
-	case <-time.After(time.Millisecond * 100):
-	  	ok = false
-	case ok = <-RPC_returned:
-	}
-
-	// Lock after sending RPC
+	ok := rf.sendRPC(server, "Raft.AppendEntries", args, reply)
+	
+	 // Lock before receiving the RPC
 	rf.mu.Lock()
 	  	
 
@@ -1161,48 +971,8 @@ func (rf *Raft) HandleSnapshot(args InstallSnapshotArgs, reply *InstallSnapshotR
 
 			rf.dPrintf_now("Warning on Server%d: Handling edge case described in Step 6.", rf.me)
 
-			// Note: Make sure that we are not roling back map with snapshot. If follower applied more logs than snapshot, do 
-			// not install the snapshot. Use commitIndex since don't want to role back commitIndex either. 
-			// if (rf.commitIndex <= newLastIncludedIndex) {
-
-			// 	// At this point, we know that the snapshot will be applied to the state machine. 
-			// 	reply.Applied = true
-
-			// 	// Protocol 5: Save Snapshot File (save in KVServer)
-			// 	rf.persister.SaveSnapshot(args.SnapshotData)
-
-			// 	// If match, only retain log entries following it, and reply. 
-			// 	rf.dPrintf2("Server%d, Term%d, State: %s, Action: Truncate Logs. newLastIncludedIndex => %d, rf.lastIncludedIndex => %d, rf.log => %v ",rf.me, rf.currentTerm, rf.stateToString(), newLastIncludedIndex, rf.lastIncludedIndex, rf.log )
-			// 	trunc_snapIndex_start := newLastIncludedIndex - rf.lastIncludedIndex
-			// 	trunc_snapIndex_end := len(rf.log)
-			// 	rf.log = rf.log[trunc_snapIndex_start:trunc_snapIndex_end]
-			// 	// After truncating log, update snapshot variables in rf structure
-			// 	rf.lastIncludedIndex =  newLastIncludedIndex
-			// 	rf.lastIncludedTerm = newLastIncludedTerm
-			// 	rf.persist()
-
-
-			// 	// Update KVServer with snapshot (done synchronously)
-			// 	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Send Snapshot to KVServer (truncated log)\n", rf.me, rf.currentTerm, rf.stateToString())
-			// 	rf.sendSnapshotToServer(args.SnapshotData)
-
-			// 	// Error checking for debugging
-			// 	// Note: We can never role back lastApplied. Once a log is applied, that's final. 
-			// 	// We should also never role back rf.comitINdex
-			// 	if (rf.lastApplied > rf.lastIncludedIndex) || (rf.commitIndex > rf.lastIncludedIndex){
-			// 		rf.error("Error in HandleSnapshot: We roled back lastApplied during case 6.")
-			// 	}
-
-			// 	//After updating state machine, update applied and committed variables. 
-			// 	rf.lastApplied = newLastIncludedIndex
-			// 	rf.commitIndex = newLastIncludedIndex
-		
-			// 	return
-
-			// }	
-
 			// If the snapshot is in the log but the appliedEntries are ahead of the lastIncludedIndex of the snapshot, 
-			// then we canno apply snapshot. 
+			// then we cannot apply snapshot. 
 			return
 		}
 	}
@@ -1242,27 +1012,17 @@ func (rf *Raft) HandleSnapshot(args InstallSnapshotArgs, reply *InstallSnapshotR
 
 func (rf *Raft) SendSnapshot(server int, args InstallSnapshotArgs, reply *InstallSnapshotReply) bool {
 
+	// Ensure that server is still a Leader (before sending out RPC)
+	if (rf.myState != Leader) {
+		// Never sent message becase server no longer is Leader. 
+		return false
+	}
+
 	// Unlock for sending RPC
 	rf.mu.Unlock()
 
-	myState_temp :=rf.getLockedState()
-	RPC_returned := make(chan bool)
-	if (myState_temp == Leader) {
-		
-		go func(goArgs InstallSnapshotArgs, goReply *InstallSnapshotReply,output chan bool) {
-			ok := rf.peers[server].Call("Raft.HandleSnapshot", goArgs, goReply)
-			output <- ok
-		}(args, reply, RPC_returned)
-	}
+	ok := rf.sendRPC(server, "Raft.HandleSnapshot", args, reply)
 
-	//Allows for RPC Timeout
-	var ok bool = false
-	select {
-	case <-time.After(time.Millisecond * 100):
-	  	ok = false
-	case ok = <-RPC_returned:
-	}
-		
 	// Lock after sending RPC
 	rf.mu.Lock()
 	  	
@@ -1401,7 +1161,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.mu = sync.Mutex{}
 	rf.mu_comm = sync.Mutex{}
 	rf.applyCh = applyCh
-	rf.debug = 0
+	rf.debug = 1
 	// Needed to maintain appropriate concurrency 
 	// Note: This case probably not necessary, but included for saftey 
 	rf.mu.Lock()
@@ -1423,7 +1183,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.heartbeatTimer.Stop()
 
 	//Create channel to synchronize log entries by handling incoming client requests. 
-	rf.serviceClientChan = make(chan int)
+	rf.serviceClientChan = make(chan int, 1024)
 
 	rf.shutdownChan = make(chan int)
 
@@ -1500,152 +1260,4 @@ func Make(peers []*labrpc.ClientEnd, me int,
 
 
 	return rf
-}
-
-// After snapshot taken, truncates the logs. 
-func (rf *Raft) TruncateLogs(lastIncludedIndex int, lastIncludedTerm int, data_snapshot []byte) {
-
-	rf.mu.Lock()
-	defer rf.mu.Unlock()
-
-	// Note: The TruncateLog function is called asynchronously within KVRaft
-	// So, the TruncateLog can be processed after additional operations have been applied or can be processed out of order. 
-	// If we receive an out of date TruncateLog function, discard it. 
-	if (rf.lastApplied > lastIncludedIndex) || (lastIncludedIndex < rf.lastIncludedIndex) {
-		return
-	}
-
-	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Truncate Logs. lastIncludedIndex => %d, lastIncludedTerm => %d, rf.lastIncludedIndex => %d \n" , rf.me, rf.currentTerm, rf.stateToString(), lastIncludedIndex, lastIncludedTerm, rf.lastIncludedIndex)
-	
-	// Store the snapshot
-	rf.persister.SaveSnapshot(data_snapshot)
-
-	// Truncate all logs before lastIncludedIndex. Reassign log slice to rf.logs. Only keep log entries that are not part of the snapshot.
-	rf.dPrintf2("Server%d: Before Truncation. rf.log => %+v, Raft Size => %d \n", rf.me, rf.log, rf.persister.RaftStateSize())
-	trunc_snapIndex_start := lastIncludedIndex - rf.lastIncludedIndex
-	trunc_snapIndex_end := len(rf.log)
-	rf.log = rf.log[trunc_snapIndex_start:trunc_snapIndex_end]
-	rf.dPrintf2("Server%d: After Truncation. rf.log => %+v, Raft Size => %d \n", rf.me, rf.log, rf.persister.RaftStateSize())
-
-	if (lastIncludedIndex < rf.lastApplied) || (lastIncludedIndex-1 > rf.lastApplied) {
-		rf.error("Error: lastIncludedIndex => %d, rf.lastApplied => %d ", lastIncludedIndex, rf.lastApplied)
-	}
-	
-
-	// After truncating log, update snapshot variables in rf structure
-	rf.lastIncludedIndex =  lastIncludedIndex
-	rf.lastIncludedTerm = lastIncludedTerm
-	// Also persist log changes above
-	rf.persist()
-
-
-
-}
-
-func (rf *Raft) sendSnapshotToServer(snapshot_data []byte) {
-	msgOut := ApplyMsg{}
-	msgOut.UseSnapshot = true
-	msgOut.Snapshot = snapshot_data
-	rf.dPrintf1("Server%d, msg on ApplyCh => %+v", rf.me, msgOut)
-	rf.applyCh <- msgOut
-}
-
-func (rf *Raft) getConsistencyTerm(i int) int {
-	realIndex := i + 1
-	
-
-	if (realIndex == 0) {
-		return -1 
-	} else if (realIndex == rf.lastIncludedIndex) {
-		// Error checking
-		if (rf.lastIncludedTerm == -1) {
-			rf.error("Error in getConsistencyTerm: Should never be called when Term is -1.")
-		}
-
-		return rf.lastIncludedTerm
-	} else {
-		return rf.getLogEntry(i).Term
-	}
-
-
-}
-
-
-//********** UTILITY FUNCTIONS **********//
-func (rf *Raft) getLogEntry(i int) RaftLog {
-	snap_i :=i-rf.lastIncludedIndex
-	realIndex := i +1
-
-	if (rf.indexNotInLog(realIndex)) {
-		rf.dPrintf_now("Error in getLogEntry: Index is not included in Log. Server%d realIndex => %d, rf.lastIncludedIndex => %d, len(log) ", rf.me, realIndex, rf.lastIncludedIndex, len(rf.log))
-		panic("Error in getLogEntry")
-	}
-
-	return rf.log[snap_i]
-}
-
-func (rf *Raft) getSnapIndex(realIndex int) int {
-
-	if (rf.indexNotInLog(realIndex)) {
-		rf.dPrintf_now("Warning in getSnapIndex: Index might not be included in Log. realIndex => %d, rf.lastIncludedIndex => %d ", realIndex, rf.lastIncludedIndex)
-	}
-	return realIndex - rf.lastIncludedIndex
-}
-
-
-func (rf *Raft) indexNotInLog(realIndex int) bool {
-	return (realIndex <= rf.lastIncludedIndex)
-}
-
-func (rf *Raft) realLogLength() int {
-	return len(rf.log) + rf.lastIncludedIndex
-}
-
-// Returns a new election timeout duration between 150ms and 300ms
-func getElectionTimeout() time.Duration {
-
-	randSource := rand.NewSource(time.Now().UnixNano())
-    r := rand.New(randSource)
-	// Create random number between 150 and 300
-	seedTime := (r.Float32() * float32(60)) + float32(150)
-	newElectionTimeout := time.Duration(seedTime) * time.Millisecond
-	return newElectionTimeout
-
-}
-
-func (rf *Raft)getLockedState() (raftState_temp RaftState) {
-	
-	rf.mu.Lock()
-	raftState_temp = rf.myState
-	rf.mu.Unlock()
-
-	return raftState_temp
-}
-
-func (rf *Raft) error(format string, a ...interface{}) (n int, err error) {
-	if rf.debug >= 0 {
-		log.Fatalf(format, a...)
-	}
-	return
-}
-
-func (rf *Raft) dPrintf1(format string, a ...interface{}) (n int, err error) {
-	if rf.debug >= 1 {
-		log.Printf(format + "\n", a...)
-	}
-	return
-}
-
-func (rf *Raft) dPrintf2(format string, a ...interface{}) (n int, err error) {
-	if rf.debug >= 2 {
-		log.Printf(format + "\n", a...)
-	}
-	return
-}
-
-func (rf *Raft) dPrintf_now(format string, a ...interface{}) (n int, err error) {
-	if rf.debug >= 1 {
-		log.Printf(format + "\n", a...)
-	}
-	return
 }

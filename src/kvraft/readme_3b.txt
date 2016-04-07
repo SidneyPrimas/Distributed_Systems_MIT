@@ -3,9 +3,8 @@ Some Changes to Raft in 3B:
 + Updating Log: Previously, when a log wasn't up to date (and we needed to request more log entries fromt the leader), the leader sent over the entire new log upon it's next request. This has been changed to sending over the log entries starting from the first log entry in the conflicting term. 
 + Generic Term/State checking of Incoming RPC: When RPCs return to sendRequestVote and sendAppendEntries, we first check if the server is in the correct term. If it isn't, then we update the term, and put it into follower mode. For these changes to the server's states, we do not need to check if the server is a candidate/leader since this change needs to be done independent of this. For any changes specific to the server being a candidate/leader, we always need to check the term and the server state. 
 
-To Do: 
-+ Put RPC Timeouts into a seperate function to allow for more functiona modularity (easier to read code). Call it ok := rf.processRPC(). 
-+ Turn go functions into stand alone fucntions (to makethe coder easier to read).
+To Do:  
++ Get rid of buffered serviceClientChan channel. Need to make sure we don't deadlock. 
 + Implement shorter rpc timeouts for client/server
 
 Important: Solve KVRaft and Raft Communication Issue
