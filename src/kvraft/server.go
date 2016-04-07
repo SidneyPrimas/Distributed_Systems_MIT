@@ -444,9 +444,6 @@ func (kv *RaftKV) processCommits() {
 				kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
 			}
 
-			// Indicate that the applyCh has been freed. 
-			//close(commitMsg.CompleteSignal_chan)
-
 
 		case <-kv.shutdownChan:
 			return
@@ -477,7 +474,7 @@ func (kv *RaftKV) manageSnapshots(lastIncludedIndex int, lastIncludedTerm int) {
 	 	// Note: Don't lock communication channes with raft from KVserver
 	 	kv.mu.Unlock()
 	 	// Send data to raft to 1) persist data and 2) truncate log. 
-		kv.rf.TruncateLogs(lastIncludedIndex, lastIncludedTerm, data_snapshot)
+		go kv.rf.TruncateLogs(lastIncludedIndex, lastIncludedTerm, data_snapshot)
 
 	}
 

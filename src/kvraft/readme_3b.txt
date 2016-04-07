@@ -5,14 +5,11 @@ Some Changes to Raft in 3B:
 
 To Do: 
 + Put RPC Timeouts into a seperate function to allow for more functiona modularity (easier to read code). Call it ok := rf.processRPC(). 
-+ Get rid of buffered serviceClientChan channel. We don't need it. 
 + Turn go functions into stand alone fucntions (to makethe coder easier to read).
 + Implement shorter rpc timeouts for client/server
 
 Important: Solve KVRaft and Raft Communication Issue
-+  The Problem: Essentially, we cannot lock while sending on applyCh. The problem is realated both to: 1) Since we need to handle TruncateLogs during a snapshot for the applyCh to return, we cannot lock around the applyCh of lastApplied routine. If we don't, then the lock can be taken by the Handle Snapshot routine that takes the lock and then waits until applyCh is free. But, applyCh will never be free since TruncateLogs needs to lock heald by HandleSnapshot. We deal with this through locking. 2) The real problem is that after sending on applyCh, we continue around the loop creating the applyMSG. However, since the applyCh is not available yet, we get blocked right before the applyCh without having the lock. So, the Raft goes off and does other things, including possibly updating the parameters in question (through truncation)
-++ Note: This might shouldn't be an issue. Raft cannot receive a snapshot since I have locked this with a seperate lock, so it cannot trucate the log, which means that the appliedEntry waiting to be sent will still be valid. No matter what, the next thing sent on the applyCh will the the nextApplied Index, which has to be applied anyway. And, if we take a snapshot based on our log being too big, then we will only truncate up to the last appliedIndex that has actually been processed. However, there is some issue related to this. 
-+ The Solution: ApplyCh should just be sent from a single goRoutine. Whenever there is a snapshot or whenever there is an update to CommitIndex, trigger the go routine through a channel. In the go Routine, don't lock the applyCh. (See https://piazza.com/class/igs35ab0zvja8?cid=576). 
++  The Solution: Instead of fixing the deadlock issues caused processing TruncateLog synchronously in Raft (including unlocking around applyCh), we made TruncateLog asynchronous with a go function. Thus, we still can lock around applyCh, which eliminates many of the problems introduced before. 
 
 
 

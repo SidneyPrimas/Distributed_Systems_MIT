@@ -12,6 +12,6 @@ do
 	mkdir -p Test/${test}
   	for i in {52..52}
   	do
-    	go test -run=${test}  2>&1 | tee -a ./Test/${test}/${i}.log
+    	go test -run=${test}  2>&1 | tee ./Test/${test}/${i}.log
   	done
 done

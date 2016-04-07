@@ -38,7 +38,6 @@ type ApplyMsg struct {
 	Index       			int
 	Term 					int
 	Command     			interface{}
-	CompleteSignal_chan		chan int
 	UseSnapshot 			bool   // ignore for lab2; only used in lab3
 	Snapshot    			[]byte // ignore for lab2; only used in lab3
 }
@@ -686,36 +685,28 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
   			// Gargabe Collection
   				return
 		default:
-			// mu_comm lock ensures that raft doesn't take any mu lock that stops raft from servicing TruncateLogs
-			// Specifically, while we hold mu_comm, we don't initiate handleSnapshot (since there are applyCh in the function)
-			rf.mu_comm.Lock()
+
 			rf.mu.Lock()
 			for(rf.commitIndex > rf.lastApplied) {
 
-				rf.lastApplied = rf.lastApplied +1
 
 				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Going to send to KVRaft for execution. rf.lastApplied => %d, realLogLength => %d, len(log) => %d", rf.me, rf.currentTerm, rf.stateToString(), rf.lastApplied, rf.realLogLength(), len(rf.log))	
 
-				applyComplete := make(chan int)
-
 				msgOut := ApplyMsg{}
-				msgOut.Index = rf.lastApplied
-				msgOut.CompleteSignal_chan = applyComplete
-				msgOut.Term = rf.getLogEntry(rf.lastApplied-1).Term
-				msgOut.Command = rf.getLogEntry(rf.lastApplied-1).Command
-				rf.mu.Unlock()
+				msgOut.Index = rf.lastApplied + 1
+				msgOut.Term = rf.getLogEntry(rf.lastApplied).Term
+				msgOut.Command = rf.getLogEntry(rf.lastApplied).Command
 
 				applyCh <- msgOut
-				// Use to block until apply operation on Raft is complete. 
-				//<- applyComplete
 
-				rf.mu.Lock()
+				// Only increase last applied *after*  it has successfully been executed in KVRaft. 
+				rf.lastApplied = rf.lastApplied +1
+
 				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, msgSent => %v", rf.me, rf.currentTerm, rf.stateToString(), rf.lastApplied, msgOut)	
 				
 				
 			}
 			rf.mu.Unlock()
-			rf.mu_comm.Unlock()
 
 			time.Sleep(time.Millisecond * rf.heartbeat_len)
 		}
@@ -1100,11 +1091,8 @@ type InstallSnapshotReply struct {
 
 func (rf *Raft) HandleSnapshot(args InstallSnapshotArgs, reply *InstallSnapshotReply) {
 
-	// Note: When writing on the applyCh (in CommitLogEntries), we cannot 
-	rf.mu_comm.Lock()
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
-	defer rf.mu_comm.Unlock()
 
 
   	rf.dPrintf2("Server%d, Term%d, State: %s, Action: Follower Receives Snapshot RPC. args => %v rf.log => %v ",rf.me, rf.currentTerm, rf.stateToString(),args, rf.log )
@@ -1435,7 +1423,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.heartbeatTimer.Stop()
 
 	//Create channel to synchronize log entries by handling incoming client requests. 
-	rf.serviceClientChan = make(chan int, 512)
+	rf.serviceClientChan = make(chan int)
 
 	rf.shutdownChan = make(chan int)
 
@@ -1520,6 +1508,13 @@ func (rf *Raft) TruncateLogs(lastIncludedIndex int, lastIncludedTerm int, data_s
 	rf.mu.Lock()
 	defer rf.mu.Unlock()
 
+	// Note: The TruncateLog function is called asynchronously within KVRaft
+	// So, the TruncateLog can be processed after additional operations have been applied or can be processed out of order. 
+	// If we receive an out of date TruncateLog function, discard it. 
+	if (rf.lastApplied > lastIncludedIndex) || (lastIncludedIndex < rf.lastIncludedIndex) {
+		return
+	}
+
 	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Truncate Logs. lastIncludedIndex => %d, lastIncludedTerm => %d, rf.lastIncludedIndex => %d \n" , rf.me, rf.currentTerm, rf.stateToString(), lastIncludedIndex, lastIncludedTerm, rf.lastIncludedIndex)
 	
 	// Store the snapshot
@@ -1532,7 +1527,7 @@ func (rf *Raft) TruncateLogs(lastIncludedIndex int, lastIncludedTerm int, data_s
 	rf.log = rf.log[trunc_snapIndex_start:trunc_snapIndex_end]
 	rf.dPrintf2("Server%d: After Truncation. rf.log => %+v, Raft Size => %d \n", rf.me, rf.log, rf.persister.RaftStateSize())
 
-	if (lastIncludedIndex != rf.lastApplied){
+	if (lastIncludedIndex < rf.lastApplied) || (lastIncludedIndex-1 > rf.lastApplied) {
 		rf.error("Error: lastIncludedIndex => %d, rf.lastApplied => %d ", lastIncludedIndex, rf.lastApplied)
 	}
 	
@@ -1649,7 +1644,7 @@ func (rf *Raft) dPrintf2(format string, a ...interface{}) (n int, err error) {
 }
 
 func (rf *Raft) dPrintf_now(format string, a ...interface{}) (n int, err error) {
-	if rf.debug >= 0 {
+	if rf.debug >= 1 {
 		log.Printf(format + "\n", a...)
 	}
 	return
