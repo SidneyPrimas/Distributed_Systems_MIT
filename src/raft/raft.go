@@ -216,6 +216,10 @@ func (rf *Raft) manageRaftInterrupts() {
 						// Note: Since this is an infinite loop, make sure to close this when the other server doesn't respond. 
 						go func(server int) {
 
+							// Lock entire AppendEntry and Snapshot routine (except for RPC)
+							rf.mu.Lock()
+							defer rf.mu.Unlock()
+
 							// Note: While loop executes until server's log is at least as up to date as the logIndex.
 							// Note: Only can send these AppendEntries if server is the leader
 							var loop bool = true
@@ -230,20 +234,15 @@ func (rf *Raft) manageRaftInterrupts() {
 								case <- rf.shutdownChan:
 									return
 								default:
-									rf.mu.Lock()
-									myState_temp := rf.myState
-									myNextIndex_temp := rf.nextIndex[server]
-									lastIncludedIndex_temp := rf.lastIncludedIndex
 									
-
 									// Critical: These state checks (to make sure the servers state has not changed) need to be made 
 									// here since 1) we just recieved the lock (so other threads could be running in between), 
 									// and 2) we will use this data to make permenant state changes to our system. 
-									if ((logIndex >= myNextIndex_temp) && (myState_temp == Leader) && (msg_received)  && (rf.currentTerm == temp_term)) {
+									if ((logIndex >= rf.nextIndex[server]) && (rf.myState == Leader) && (msg_received)  && (rf.currentTerm == temp_term)) {
 
 										// If nextIndex doesn't exists in Log, send a snapshot. 
 										// Otherwise, send the log entries directly. 
-										if (myNextIndex_temp <= lastIncludedIndex_temp) {
+										if (rf.nextIndex[server] <= rf.lastIncludedIndex) {
 
 											msg_received, temp_term = rf.updateFollowerState(server)
 										} else {
@@ -255,7 +254,6 @@ func (rf *Raft) manageRaftInterrupts() {
 										loop = false
 									}
 
-									rf.mu.Unlock()
 								}
 
 							}
@@ -292,20 +290,19 @@ func (rf *Raft) manageRaftInterrupts() {
 						// Note: Go routine will have access to updated rf raft structure. 
 						go func(server int) {
 
+							// Lock entire heartbeat routine (except for RPC)
 							rf.mu.Lock()
-							myNextIndex_temp := rf.nextIndex[server]
-							lastIncludedIndex_temp := rf.lastIncludedIndex
+							defer rf.mu.Unlock()
 							
 
 							// If nextIndex doesn't exists in Log, send a snapshot. 
 							// Otherwise, send the log entries directly. 
-							if (myNextIndex_temp <= lastIncludedIndex_temp) {
+							if (rf.nextIndex[server] <= rf.lastIncludedIndex) {
 								rf.updateFollowerState(server)
 							} else {
 								rf.updateFollowerLogs(server)
 							}
 
-							rf.mu.Unlock()
 
 						}(thisServer)
 
@@ -601,15 +598,8 @@ func (rf *Raft) updateFollowerLogs(server int)  (msg_received bool, returnedTerm
 	args.Entries = entriesToSend
 
 
-	//Lock_updateFollowerLogs_beginning
-	rf.mu.Unlock()
-
-
 	var reply AppendEntriesReply
 	msg_received = rf.sendAppendEntries(server, args, &reply)
-
-	//Deferred lock for concurrency issues
-	rf.mu.Lock()
 	
 	// Critical: These state checks (to make sure the servers state has not changed) need to be made 
 	// here since 1) we just recieved the lock (so other threads could be running in between), 
@@ -672,13 +662,10 @@ func (rf *Raft) updateFollowerState(server int)  (msg_received bool, returnedTer
 		// If the follower rejects the Snapshot, we just role back nextIndex via AppendEntries RPC per the usual protocol. 
 		rf.nextIndex[server] =  rf.realLogLength() + 1
 
-	rf.mu.Unlock()
-
 	// SEND SNAPASHOT RPC
 	var reply InstallSnapshotReply
 	msg_received = rf.SendSnapshot(server, args, &reply)
 
-	rf.mu.Lock()
 
 	// Note: We only update matchIndex through protocol in AppendEntries (safter and simpler)
 
@@ -720,7 +707,7 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
 
 				applyCh <- msgOut
 				// Use to block until apply operation on Raft is complete. 
-				<- applyComplete
+				//<- applyComplete
 
 				rf.mu.Lock()
 				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Successful Commit up to lastApplied of %d, msgSent => %v", rf.me, rf.currentTerm, rf.stateToString(), rf.lastApplied, msgOut)	
@@ -895,13 +882,12 @@ func (rf *Raft) RequestVote(args RequestVoteArgs, reply *RequestVoteReply) {
 // the struct itself.
 //
 func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *RequestVoteReply) bool {
-	//rf.mu.Lock()
-	//rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Method sendRequestVote sent to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), server, args)
-	//rf.mu.Unlock()
-	
 
-	// Unlock before sending the RPC
+	//rf.dPrintf1("%s, Server%d, Term%d, State: %s, Action: Method sendRequestVote sent to Server%d, Request => (%+v) \n" , time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), server, args)
+	
+	// Unlock for sending RPC
 	rf.mu.Unlock()
+
 
 	RPC_returned := make(chan bool)
 	myState_temp :=rf.getLockedState()
@@ -1047,6 +1033,8 @@ func (rf *Raft) AppendEntries(args AppendEntriesArgs, reply *AppendEntriesReply)
 //
 func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *AppendEntriesReply) bool {
 
+	// Unlock for sending RPC
+	rf.mu.Unlock()
 
 	myState_temp :=rf.getLockedState()
 	RPC_returned := make(chan bool)
@@ -1064,30 +1052,29 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 	case <-time.After(time.Millisecond * 100):
 	  	ok = false
 	case ok = <-RPC_returned:
-		
-		// Needed to maintain appropriate concurrency 
-		rf.mu.Lock()
-	  	defer rf.mu.Unlock()
+	}
+
+	// Lock after sending RPC
+	rf.mu.Lock()
 	  	
 
-		if(ok) {
-			// Protocol: As always, if this server's term is lagging, update the term. 
-			// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
-			if (reply.Term > rf.currentTerm) {
-				rf.currentTerm = reply.Term
-				rf.votedFor = -1
-				rf.persist()
+	if(ok) {
+		// Protocol: As always, if this server's term is lagging, update the term. 
+		// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
+		if (reply.Term > rf.currentTerm) {
+			rf.currentTerm = reply.Term
+			rf.votedFor = -1
+			rf.persist()
 
-				if (rf.myState == Leader)  {
-					rf.dPrintf1("Server%d Stop Being a Leader from sendAppendEntries method\n %s \n", rf.me, debug_break)
-					//Transition from Leader to Follower: reset electionTimer
-					rf.myState = Follower
-					rf.electionTimer.Reset(getElectionTimeout())
-					rf.heartbeatTimer.Stop()
-				} else if (rf.myState == Candidate) {
-					rf.myState = Follower
-					rf.electionTimer.Reset(getElectionTimeout())
-				}
+			if (rf.myState == Leader)  {
+				rf.dPrintf1("Server%d Stop Being a Leader from sendAppendEntries method\n %s \n", rf.me, debug_break)
+				//Transition from Leader to Follower: reset electionTimer
+				rf.myState = Follower
+				rf.electionTimer.Reset(getElectionTimeout())
+				rf.heartbeatTimer.Stop()
+			} else if (rf.myState == Candidate) {
+				rf.myState = Follower
+				rf.electionTimer.Reset(getElectionTimeout())
 			}
 		}
 	}
@@ -1116,8 +1103,8 @@ func (rf *Raft) HandleSnapshot(args InstallSnapshotArgs, reply *InstallSnapshotR
 	// Note: When writing on the applyCh (in CommitLogEntries), we cannot 
 	rf.mu_comm.Lock()
 	rf.mu.Lock()
-	rf.mu.Unlock()
-	rf.mu_comm.Unlock()
+	defer rf.mu.Unlock()
+	defer rf.mu_comm.Unlock()
 
 
   	rf.dPrintf2("Server%d, Term%d, State: %s, Action: Follower Receives Snapshot RPC. args => %v rf.log => %v ",rf.me, rf.currentTerm, rf.stateToString(),args, rf.log )
@@ -1267,6 +1254,9 @@ func (rf *Raft) HandleSnapshot(args InstallSnapshotArgs, reply *InstallSnapshotR
 
 func (rf *Raft) SendSnapshot(server int, args InstallSnapshotArgs, reply *InstallSnapshotReply) bool {
 
+	// Unlock for sending RPC
+	rf.mu.Unlock()
+
 	myState_temp :=rf.getLockedState()
 	RPC_returned := make(chan bool)
 	if (myState_temp == Leader) {
@@ -1283,34 +1273,33 @@ func (rf *Raft) SendSnapshot(server int, args InstallSnapshotArgs, reply *Instal
 	case <-time.After(time.Millisecond * 100):
 	  	ok = false
 	case ok = <-RPC_returned:
+	}
 		
-		// Needed to maintain appropriate concurrency 
-		rf.mu.Lock()
-	  	defer rf.mu.Unlock()
+	// Lock after sending RPC
+	rf.mu.Lock()
 	  	
-	  	// Use for debugging purposes
-	  	if (!ok || !reply.Applied || (reply.Term > rf.currentTerm)) {
-	  		rf.dPrintf_now("Warning on Server%d: Sent snapshot to Follower. But, follower did not apply the snapshot. ", rf.me)
-	  	}
+  	// Use for debugging purposes
+  	if (!ok || !reply.Applied || (reply.Term > rf.currentTerm)) {
+  		rf.dPrintf_now("Warning on Server%d: Sent snapshot to Follower. But, follower did not apply the snapshot. ", rf.me)
+  	}
 
-		if(ok) {
-			// Protocol: As always, if this server's term is lagging, update the term. 
-			// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
-			if (reply.Term > rf.currentTerm) {
-				rf.currentTerm = reply.Term
-				rf.votedFor = -1
-				rf.persist()
+	if(ok) {
+		// Protocol: As always, if this server's term is lagging, update the term. 
+		// Protocol: If the current system thinks they are a Leader or Candidate (but is in the wrong term), set them to Follower state. 
+		if (reply.Term > rf.currentTerm) {
+			rf.currentTerm = reply.Term
+			rf.votedFor = -1
+			rf.persist()
 
-				if (rf.myState == Leader)  {
-					rf.dPrintf1("Server%d Stop Being a Leader from sendAppendEntries method\n %s \n", rf.me, debug_break)
-					//Transition from Leader to Follower: reset electionTimer
-					rf.myState = Follower
-					rf.electionTimer.Reset(getElectionTimeout())
-					rf.heartbeatTimer.Stop()
-				} else if (rf.myState == Candidate) {
-					rf.myState = Follower
-					rf.electionTimer.Reset(getElectionTimeout())
-				}
+			if (rf.myState == Leader)  {
+				rf.dPrintf1("Server%d Stop Being a Leader from sendAppendEntries method\n %s \n", rf.me, debug_break)
+				//Transition from Leader to Follower: reset electionTimer
+				rf.myState = Follower
+				rf.electionTimer.Reset(getElectionTimeout())
+				rf.heartbeatTimer.Stop()
+			} else if (rf.myState == Candidate) {
+				rf.myState = Follower
+				rf.electionTimer.Reset(getElectionTimeout())
 			}
 		}
 	}
@@ -1424,7 +1413,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.mu = sync.Mutex{}
 	rf.mu_comm = sync.Mutex{}
 	rf.applyCh = applyCh
-	rf.debug = -1
+	rf.debug = 0
 	// Needed to maintain appropriate concurrency 
 	// Note: This case probably not necessary, but included for saftey 
 	rf.mu.Lock()
@@ -1566,7 +1555,28 @@ func (rf *Raft) sendSnapshotToServer(snapshot_data []byte) {
 	rf.applyCh <- msgOut
 }
 
-// Function to 
+func (rf *Raft) getConsistencyTerm(i int) int {
+	realIndex := i + 1
+	
+
+	if (realIndex == 0) {
+		return -1 
+	} else if (realIndex == rf.lastIncludedIndex) {
+		// Error checking
+		if (rf.lastIncludedTerm == -1) {
+			rf.error("Error in getConsistencyTerm: Should never be called when Term is -1.")
+		}
+
+		return rf.lastIncludedTerm
+	} else {
+		return rf.getLogEntry(i).Term
+	}
+
+
+}
+
+
+//********** UTILITY FUNCTIONS **********//
 func (rf *Raft) getLogEntry(i int) RaftLog {
 	snap_i :=i-rf.lastIncludedIndex
 	realIndex := i +1
@@ -1595,29 +1605,6 @@ func (rf *Raft) indexNotInLog(realIndex int) bool {
 func (rf *Raft) realLogLength() int {
 	return len(rf.log) + rf.lastIncludedIndex
 }
-
-func (rf *Raft) getConsistencyTerm(i int) int {
-	realIndex := i + 1
-	
-
-	if (realIndex == 0) {
-		return -1 
-	} else if (realIndex == rf.lastIncludedIndex) {
-		// Error checking
-		if (rf.lastIncludedTerm == -1) {
-			rf.error("Error in getConsistencyTerm: Should never be called when Term is -1.")
-		}
-
-		return rf.lastIncludedTerm
-	} else {
-		return rf.getLogEntry(i).Term
-	}
-
-
-}
-
-
-//********** UTILITY FUNCTIONS **********//
 
 // Returns a new election timeout duration between 150ms and 300ms
 func getElectionTimeout() time.Duration {

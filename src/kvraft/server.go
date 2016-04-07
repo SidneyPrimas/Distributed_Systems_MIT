@@ -295,7 +295,7 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	kv.me = me
 	kv.maxraftstate = maxraftstate
 	kv.persister = persister
-	kv.debug = -1
+	kv.debug = 0
 
 	// Your initialization code here.
 	kv.mu = sync.Mutex{}
@@ -445,7 +445,7 @@ func (kv *RaftKV) processCommits() {
 			}
 
 			// Indicate that the applyCh has been freed. 
-			close(commitMsg.CompleteSignal_chan)
+			//close(commitMsg.CompleteSignal_chan)
 
 
 		case <-kv.shutdownChan:

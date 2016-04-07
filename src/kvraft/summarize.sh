@@ -8,11 +8,11 @@ path_to_folder=$1
 
 # Note: R search recersively through all files in folder (and subdirectories)
 
-echo "************* FAIL *************"
-grep -Rn --color FAIL ./${path_to_folder}/
-
 echo "************* PASS *************"
 grep -Rn --color 'PASS' ./${path_to_folder}/
+
+echo "************* FAIL *************"
+grep -Rn --color FAIL ./${path_to_folder}/
 
 echo "************* Summary *************"
 total_fail=$(grep -R 'FAIL' ./$path_to_folder/ | grep -c --color 'FAIL')
