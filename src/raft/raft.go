@@ -297,7 +297,7 @@ func (rf *Raft) getVotes(server int)  (myvoteGranted bool, msg_received bool, re
 // Logic to update the log of the follower
 func (rf *Raft) processAppendEntryRequest(args AppendEntriesArgs, reply *AppendEntriesReply)  {
 
-	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Append RPC Request, args => %+v, rf.Log => %+v, rf.lastApllied => %d, rf.commitIndex => %d  \n", rf.me, rf.currentTerm, rf.stateToString(),  args, rf.log, rf.lastApplied, rf.commitIndex)
+	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Append RPC Request, args => %+v, rf.lastApllied => %d, rf.commitIndex => %d  \n", rf.me, rf.currentTerm, rf.stateToString(),  args, rf.lastApplied, rf.commitIndex)
 
 	// Default reply for ConflictIndex. 
 	reply.ConflictingIndex = 1 // Except if we explicitly set ConflictIndex (due to false replySuccess), it won't be used by Leader. 
