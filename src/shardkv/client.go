@@ -19,6 +19,7 @@ import "time"
 // please use this function,
 // and please do not change it.
 //
+// Maps a key (which is a string) to a shard. 
 func key2shard(key string) int {
 	shard := 0
 	if len(key) > 0 {
@@ -53,6 +54,7 @@ type Clerk struct {
 //
 func MakeClerk(masters []*labrpc.ClientEnd, make_end func(string) *labrpc.ClientEnd) *Clerk {
 	ck := new(Clerk)
+	//Creates a shardmaster linked to this client. Masters includes all other shardmasters. 
 	ck.sm = shardmaster.MakeClerk(masters)
 	ck.make_end = make_end
 	// You'll have to add code here.

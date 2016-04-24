@@ -246,7 +246,7 @@ func (sm *ShardMaster) Raft() *raft.Raft {
 func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister) *ShardMaster {
 	sm := new(ShardMaster)
 	sm.me = me
-	sm.debug = 2
+	sm.debug = 0
 
 	sm.configs = make([]Config, 1)
 	sm.configs[0].Groups = map[int][]string{}
@@ -256,7 +256,7 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister)
 	sm.rf = raft.Make(servers, me, persister, sm.applyCh)
 
 	// Your code here.
-	sm.DPrintf_now("Action: New Master Server Started." )
+	sm.DPrintf1("Action: New Master Server Started." )
 
 	// Create mutex for locking Master Server
 	sm.mu = sync.Mutex{}
@@ -302,176 +302,138 @@ func (sm *ShardMaster) processCommits() {
 			// Type Assert: Package the Command from ApplyMsg into an Op Struct
 			thisCommand := commitMsg.Command.(Op)
 
-			// Execute Query Request
-			if thisCommand.CommandType == Query {
-
 				commitExists, returnValue := sm.checkCommitTable_afterRaft(thisCommand)
 
 				// Raft Op is next request: Execute the commmand
 				if !commitExists {
 
-					// If the requested configuration number is too large or is -1,
-					// then set the requested configuration to the max possible. 
-					if (thisCommand.Query_Num == -1) || (thisCommand.Query_Num > len(sm.configs)-1) {
-						thisCommand.Query_Num = len(sm.configs)-1
+					// Execute Query Request
+					if thisCommand.CommandType == Query {
+
+						// If the requested configuration number is too large or is -1,
+						// then set the requested configuration to the max possible. 
+						if (thisCommand.Query_Num == -1) || (thisCommand.Query_Num > len(sm.configs)-1) {
+							thisCommand.Query_Num = len(sm.configs)-1
+						}
+
+						// Exectue operation:
+						newValue := sm.configs[thisCommand.Query_Num]
+
+						// Update the value to be returnd
+						returnValue = newValue
+
+					// Execute Join Request
+					}  else if thisCommand.CommandType == Join {
+						// Exectue operation:
+						newConfig := Config{}
+						prevConfigNum := sm.configs[len(sm.configs)-1].Num
+						newConfig.Num = prevConfigNum + 1
+						newConfig.Groups = map[int][]string{}
+
+						// Copy mapping of previous Groups. 
+						for gid, server_list := range sm.configs[prevConfigNum].Groups {
+
+							newConfig.Groups[gid] = server_list
+						}
+
+						// Add new groups
+						for gid, server_list := range(thisCommand.Join_Servers) {
+							// Checking for possible error
+							if (gid == -1) {
+								sm.DError("GID of -1 received. We use GID of -1 to indicate invalid GID.")
+							}
+							if (gid == 0) {
+								sm.DError("GID of 0 received. We use GID of 0 to indicate invalid GID.")
+							}
+							newConfig.Groups[gid] = server_list
+						}
+
+						sm.DPrintf2("State: State before shard re-distribution. Prev Shards => %+v, Prev Groups => %+v \n",  sm.configs[prevConfigNum].Shards, sm.configs[prevConfigNum].Groups)
+						newConfig.Shards = sm.distributeShards(sm.configs[prevConfigNum].Shards, newConfig.Groups)
+						sm.DPrintf2("State: State after shard distribution. New Shards => %+v, New Groups => %+v \n",  newConfig.Shards, newConfig.Groups)
+
+						sm.configs = append(sm.configs, newConfig)
+
+						// Set return value
+						returnValue = Config{}
+
+					// Execute Leave Request
+					} else if thisCommand.CommandType == Leave {
+						// Exectue operation:
+						newConfig := Config{}
+						prevConfigNum := sm.configs[len(sm.configs)-1].Num
+						newConfig.Num = prevConfigNum + 1
+						newConfig.Groups = map[int][]string{}
+
+						// Copy mapping of previous Groups. 
+						for gid, server_list := range sm.configs[prevConfigNum].Groups {
+							newConfig.Groups[gid] = server_list
+						}
+
+						// Copy previous shard distribution into new shard distribution. 
+						var tempShards [NShards]int
+						copy(tempShards[0:NShards-1], sm.configs[prevConfigNum].Shards[0:NShards-1])
+
+						// Remove Groups
+						for _, leave_gid := range(thisCommand.Leave_GIDs) {
+							delete(newConfig.Groups, leave_gid)
+
+							// Set all removed GIDs to invalid group 0, so they can be re-distributed. 
+							for k, shard_gid := range(tempShards) {
+								if (shard_gid == leave_gid) {
+									tempShards[k] = 0
+								}
+							}
+						}
+
+						sm.DPrintf2("State: State before shard re-distribution. Prev Shards => %+v, Prev Groups => %+v \n",  sm.configs[prevConfigNum].Shards, sm.configs[prevConfigNum].Groups)
+						newConfig.Shards = sm.distributeShards(tempShards, newConfig.Groups)
+						sm.DPrintf2("State: State after shard distribution. New Shards => %+v, New Groups => %+v \n",  newConfig.Shards, newConfig.Groups)
+
+						sm.configs = append(sm.configs, newConfig)
+
+						// Set return value
+						returnValue = Config{}
+
+					// Execute Move Request
+					} else if thisCommand.CommandType == Move {
+						// Exectue operation:
+						newConfig := Config{}
+						prevConfigNum := sm.configs[len(sm.configs)-1].Num
+						newConfig.Num = prevConfigNum + 1
+						newConfig.Groups = map[int][]string{}
+
+						// Copy mapping of previous Groups. 
+						for gid, server_list := range sm.configs[prevConfigNum].Groups {
+							newConfig.Groups[gid] = server_list
+						}
+
+						// Copy previous shard distribution into new shard distribution. 
+						var newShards [NShards]int
+						copy(newShards[0:NShards-1], sm.configs[prevConfigNum].Shards[0:NShards-1])
+
+						// Error Checking
+						if thisCommand.Move_GID == 0 {
+							sm.DError("Moved forced a Shard to Invalid GID #0.")
+						}
+
+						// Move Shards
+						newShards[thisCommand.Move_Shard] = thisCommand.Move_GID
+
+						// Update configs
+						newConfig.Shards = newShards
+						sm.configs = append(sm.configs, newConfig)
+
+						// Set return value
+						returnValue = Config{}
 					}
-
-					// Exectue operation:
-					newValue := sm.configs[thisCommand.Query_Num]
-
-					// Update the value to be returnd
-					returnValue = newValue
 
 					// Update commitTable
 					sm.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID, ReturnValue: returnValue}
-
 				}
 
 				// If there is an outstanding RPC, return the appropriate value.
 				sm.handleOpenRPCs(commitMsg.Index, thisCommand, returnValue)
-
-			// Execute Join Request
-			} else if thisCommand.CommandType == Join {
-
-				// Check commitTable
-				commitExists, _ := sm.checkCommitTable_afterRaft(thisCommand)
-
-				// Raft Op is next request: Execute the commmand
-				if !commitExists {
-
-					// Exectue operation:
-					newConfig := Config{}
-					prevConfigNum := sm.configs[len(sm.configs)-1].Num
-					newConfig.Num = prevConfigNum + 1
-					newConfig.Groups = map[int][]string{}
-
-					// Copy mapping of previous Groups. 
-					for gid, server_list := range sm.configs[prevConfigNum].Groups {
-
-						newConfig.Groups[gid] = server_list
-					}
-
-					// Add new groups
-					for gid, server_list := range(thisCommand.Join_Servers) {
-						// Checking for possible error
-						if (gid == -1) {
-							sm.DError("GID of -1 received. We use GID of -1 to indicate invalid GID.")
-						}
-						if (gid == 0) {
-							sm.DError("GID of 0 received. We use GID of 0 to indicate invalid GID.")
-						}
-						newConfig.Groups[gid] = server_list
-					}
-
-
-					sm.DPrintf2("State: State before shard re-distribution. Prev Shards => %+v, Prev Groups => %+v \n",  sm.configs[prevConfigNum].Shards, sm.configs[prevConfigNum].Groups)
-					newConfig.Shards = sm.distributeShards(sm.configs[prevConfigNum].Shards, newConfig.Groups)
-					sm.DPrintf2("State: State after shard distribution. New Shards => %+v, New Groups => %+v \n",  newConfig.Shards, newConfig.Groups)
-
-					sm.configs = append(sm.configs, newConfig)
-
-					// Update commitTable. No returnValue.
-					sm.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID}
-				}
-
-				//Return RPC to Client. Return an empty Config struct that will be discarded. 
-				sm.handleOpenRPCs(commitMsg.Index, thisCommand, Config{})
-
-			} else if thisCommand.CommandType == Leave {
-
-				// Check commitTable
-				commitExists, _ := sm.checkCommitTable_afterRaft(thisCommand)
-
-				// Raft Op is next request: Execute the commmand
-				if !commitExists {
-
-					// Exectue operation:
-					newConfig := Config{}
-					prevConfigNum := sm.configs[len(sm.configs)-1].Num
-					newConfig.Num = prevConfigNum + 1
-					newConfig.Groups = map[int][]string{}
-
-					// Copy mapping of previous Groups. 
-					for gid, server_list := range sm.configs[prevConfigNum].Groups {
-						newConfig.Groups[gid] = server_list
-					}
-
-					// Copy previous shard distribution into new shard distribution. 
-					var tempShards [NShards]int
-					copy(tempShards[0:NShards-1], sm.configs[prevConfigNum].Shards[0:NShards-1])
-
-					// Remove Groups
-					for _, leave_gid := range(thisCommand.Leave_GIDs) {
-						delete(newConfig.Groups, leave_gid)
-
-						// Set all removed GIDs to invalid group 0, so they can be re-distributed. 
-						for k, shard_gid := range(tempShards) {
-							if (shard_gid == leave_gid) {
-								tempShards[k] = 0
-							}
-						}
-					}
-
-					sm.DPrintf2("State: State before shard re-distribution. Prev Shards => %+v, Prev Groups => %+v \n",  sm.configs[prevConfigNum].Shards, sm.configs[prevConfigNum].Groups)
-					newConfig.Shards = sm.distributeShards(tempShards, newConfig.Groups)
-					sm.DPrintf2("State: State after shard distribution. New Shards => %+v, New Groups => %+v \n",  newConfig.Shards, newConfig.Groups)
-
-					sm.configs = append(sm.configs, newConfig)
-
-					// Update commitTable. No returnValue.
-					sm.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID}
-				}
-
-				//Return RPC to Client. Return an empty Config struct that will be discarded. 
-				sm.handleOpenRPCs(commitMsg.Index, thisCommand, Config{})
-
-			} else if thisCommand.CommandType == Move {
-
-				// Check commitTable
-				commitExists, _ := sm.checkCommitTable_afterRaft(thisCommand)
-
-				// Raft Op is next request: Execute the commmand
-				if !commitExists {
-
-					// Exectue operation:
-					newConfig := Config{}
-					prevConfigNum := sm.configs[len(sm.configs)-1].Num
-					newConfig.Num = prevConfigNum + 1
-					newConfig.Groups = map[int][]string{}
-
-					// Copy mapping of previous Groups. 
-					for gid, server_list := range sm.configs[prevConfigNum].Groups {
-						newConfig.Groups[gid] = server_list
-					}
-
-					// Copy previous shard distribution into new shard distribution. 
-					var newShards [NShards]int
-					copy(newShards[0:NShards-1], sm.configs[prevConfigNum].Shards[0:NShards-1])
-
-					// Error Checking
-					if thisCommand.Move_GID == 0 {
-						sm.DError("Moved forced a Shard to Invalid GID #0.")
-					}
-
-					// Move Shards
-					newShards[thisCommand.Move_Shard] = thisCommand.Move_GID
-
-					// Update configs
-					newConfig.Shards = newShards
-					sm.configs = append(sm.configs, newConfig)
-
-					// Update commitTable. No returnValue.
-					sm.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID}
-				}
-
-				//Return RPC to Client. Return an empty Config struct that will be discarded. 
-				sm.handleOpenRPCs(commitMsg.Index, thisCommand, Config{})
-
-
-
-			}else {
-				sm.DError("Error: Operation Recieved on applyCh is not known. \n")
-			}
 
 			sm.DPrintf2("State: State after Receiving OP on applyCh. Configuration => %+v, RPC_Queue => %+v, CommitTable %+v \n",  sm.configs, sm.waitingForRaft_queue, sm.lastCommitTable)
 
