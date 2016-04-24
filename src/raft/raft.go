@@ -1166,7 +1166,7 @@ func Make(peers []*labrpc.ClientEnd, me int,
 	rf.mu = sync.Mutex{}
 	rf.mu_comm = sync.Mutex{}
 	rf.applyCh = applyCh
-	rf.debug = 1
+	rf.debug = 0
 	// Needed to maintain appropriate concurrency 
 	// Note: This case probably not necessary, but included for saftey 
 	rf.mu.Lock()
