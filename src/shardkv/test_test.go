@@ -6,6 +6,8 @@ import "time"
 import "fmt"
 import "sync/atomic"
 import "math/rand"
+import "os"
+import "os/signal"
 
 func check(t *testing.T, ck *Clerk, key string, value string) {
 	v := ck.Get(key)
@@ -18,6 +20,15 @@ func check(t *testing.T, ck *Clerk, key string, value string) {
 // test static 2-way sharding, without shard movement.
 //
 func TestStaticShards(t *testing.T) {
+
+	// Sidney: Go Routine to trace down live or dead locks
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+	go func() {
+	    <-signalChan
+	    panic("ctrl c")
+	}()
+
 	fmt.Printf("Test: static shards ...\n")
 
 	cfg := make_config(t, 3, false, -1)
@@ -89,6 +100,7 @@ func TestJoinLeave(t *testing.T) {
 
 	ck := cfg.makeClient()
 
+	fmt.Printf("Join Group 0 \n")
 	cfg.join(0)
 
 	n := 10
@@ -103,6 +115,7 @@ func TestJoinLeave(t *testing.T) {
 		check(t, ck, ka[i], va[i])
 	}
 
+	fmt.Printf("Join Group 1\n")
 	cfg.join(1)
 
 	for i := 0; i < n; i++ {
@@ -112,8 +125,11 @@ func TestJoinLeave(t *testing.T) {
 		va[i] += x
 	}
 
+	fmt.Printf("Leave Group 0\n")
 	cfg.leave(0)
 
+	// 1) Need to send values to new group
+	// 2) Need to transfer map from Group 0. 
 	for i := 0; i < n; i++ {
 		check(t, ck, ka[i], va[i])
 		x := randstring(5)
@@ -125,8 +141,10 @@ func TestJoinLeave(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	cfg.checklogs()
+	// At this point, all data from Group 0 should be re-allocated. 
 	cfg.ShutdownGroup(0)
 
+	fmt.Printf("Check if data from Group 0 still available.\n")
 	for i := 0; i < n; i++ {
 		check(t, ck, ka[i], va[i])
 	}

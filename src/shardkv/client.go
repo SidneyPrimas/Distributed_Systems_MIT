@@ -13,6 +13,8 @@ import "crypto/rand"
 import "math/big"
 import "shardmaster"
 import "time"
+import "fmt"
+import "log"
 
 //
 // which shard is a key in?
@@ -41,6 +43,10 @@ type Clerk struct {
 	config   shardmaster.Config
 	make_end func(string) *labrpc.ClientEnd
 	// You will have to modify this struct.
+	currentLeader map[int]int
+	clientID      int64
+	currentRPCNum int64
+	debug         int
 }
 
 //
@@ -58,6 +64,12 @@ func MakeClerk(masters []*labrpc.ClientEnd, make_end func(string) *labrpc.Client
 	ck.sm = shardmaster.MakeClerk(masters)
 	ck.make_end = make_end
 	// You'll have to add code here.
+
+	ck.currentLeader = make(map[int]int)
+	ck.clientID = nrand()
+	ck.currentRPCNum = 0
+	ck.debug = 1
+
 	return ck
 }
 
@@ -70,19 +82,42 @@ func MakeClerk(masters []*labrpc.ClientEnd, make_end func(string) *labrpc.Client
 func (ck *Clerk) Get(key string) string {
 	args := GetArgs{}
 	args.Key = key
+	args.ClientID = ck.clientID
+	args.RequestID = ck.currentRPCNum
 
 	for {
 		shard := key2shard(key)
 		gid := ck.config.Shards[shard]
+		// If the gid exists in our current stored configuration. 
 		if servers, ok := ck.config.Groups[gid]; ok {
 			// try each server for the shard.
 			for si := 0; si < len(servers); si++ {
-				srv := ck.make_end(servers[si])
+				selectedServer := ck.findLeaderServer(si, gid)
+				srv := ck.make_end(servers[selectedServer])
+				
 				var reply GetReply
-				ok := srv.Call("ShardKV.Get", &args, &reply)
-				if ok && reply.WrongLeader == false && (reply.Err == OK || reply.Err == ErrNoKey) {
-					return reply.Value
+				ok := ck.sendRPC(srv, "ShardKV.Get", &args, &reply)
+
+				// Wrong Leader (reset stored leader)
+				if (ok && reply.WrongLeader == true) {
+					ck.currentLeader[gid] = -1
 				}
+
+				// Correct Leader
+				if ok && reply.WrongLeader == false  {
+					//Update stored Leader
+					ck.currentLeader[gid] = selectedServer
+
+					// Handle successful reply
+					if (reply.Err == OK || reply.Err == ErrNoKey) {
+						ck.DPrintf1("Action: Get completed. Sent Args => %+v, Received Reply => %+v \n", args, reply)
+						// RPC Completed so increment the RPC count by 1.
+						ck.currentRPCNum = ck.currentRPCNum + 1
+
+					return reply.Value
+					}
+				}
+				// Handle situation where wrong group.
 				if ok && (reply.Err == ErrWrongGroup) {
 					break
 				}
@@ -93,8 +128,10 @@ func (ck *Clerk) Get(key string) string {
 		ck.config = ck.sm.Query(-1)
 	}
 
+	ck.DError("Return from Get in ShardKV Client. Should never return from here.")
 	return ""
 }
+
 
 //
 // shared by Put and Append.
@@ -105,18 +142,41 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 	args.Key = key
 	args.Value = value
 	args.Op = op
+	args.ClientID = ck.clientID
+	args.RequestID = ck.currentRPCNum
 
 
 	for {
 		shard := key2shard(key)
 		gid := ck.config.Shards[shard]
+		// If the gid exists in our current stored configuration. 
 		if servers, ok := ck.config.Groups[gid]; ok {
+			// try each server for the shard.
 			for si := 0; si < len(servers); si++ {
-				srv := ck.make_end(servers[si])
+				selectedServer := ck.findLeaderServer(si, gid)
+				srv := ck.make_end(servers[selectedServer])
+				
 				var reply PutAppendReply
-				ok := srv.Call("ShardKV.PutAppend", &args, &reply)
-				if ok && reply.WrongLeader == false && reply.Err == OK {
-					return
+				ok := ck.sendRPC(srv, "ShardKV.PutAppend", &args, &reply)
+
+				// Wrong Leader (reset stored leader)
+				if (ok && reply.WrongLeader == true) {
+					ck.currentLeader[gid] = -1
+				}
+
+				// Correct Leader
+				if ok && reply.WrongLeader == false  {
+					//Update stored Leader
+					ck.currentLeader[gid] = selectedServer
+
+					// Handle successful reply
+					if (reply.Err == OK) {
+						ck.DPrintf1("Action: PutAppend completed. Sent Args => %+v, Received Reply => %+v \n", args, reply)
+						// RPC Completed so increment the RPC count by 1.
+						ck.currentRPCNum = ck.currentRPCNum + 1
+
+						return
+					}
 				}
 				if ok && reply.Err == ErrWrongGroup {
 					break
@@ -134,4 +194,81 @@ func (ck *Clerk) Put(key string, value string) {
 }
 func (ck *Clerk) Append(key string, value string) {
 	ck.PutAppend(key, value, "Append")
+}
+
+//********** HELPER FUNCTIONS **********//
+
+// Select server to send request to.
+func (ck *Clerk) findLeaderServer(si int, gid int) (selectedServer int) {
+
+	selectedServer, ok := ck.currentLeader[gid]
+	if (ok && selectedServer != -1){
+		return selectedServer
+	} else {
+		selectedServer = si
+		return selectedServer
+	}
+}
+
+// Send out an RPC (with timeout implemented)
+func (ck *Clerk) sendRPC(srv *labrpc.ClientEnd, function string, goArgs interface{}, goReply interface{}) (ok_out bool){
+
+	RPC_returned := make(chan bool)
+	go func() {
+		ok := srv.Call(function, goArgs, goReply)
+
+		RPC_returned <- ok
+	}()
+
+	//Allows for RPC Timeout
+	ok_out = false
+	select {
+	case <-time.After(time.Millisecond * 300):
+	  	ok_out = false
+	case ok_out = <-RPC_returned:
+	}
+
+	return ok_out
+}
+
+//********** UTILITY FUNCTIONS **********//
+func (ck *Clerk) DPrintf2(format string, a ...interface{}) (n int, err error) {
+	if ck.debug >= 2 {
+		custom_input := make([]interface{},1)
+		custom_input[0] = ck.clientID
+		out_var := append(custom_input , a...)
+		log.Printf("KVClient%d, " + format + "\n", out_var...)
+	}
+	return
+}
+
+func (ck *Clerk) DPrintf1(format string, a ...interface{}) (n int, err error) {
+	if ck.debug >= 1 {
+		custom_input := make([]interface{},1)
+		custom_input[0] = ck.clientID
+		out_var := append(custom_input , a...)
+		log.Printf("KVClient%d, " + format + "\n", out_var...)
+	}
+	return
+}
+
+func (ck *Clerk) DPrintf_now(format string, a ...interface{}) (n int, err error) {
+	if ck.debug >= 0 {
+		custom_input := make([]interface{},1)
+		custom_input[0] = ck.clientID
+		out_var := append(custom_input , a...)
+		log.Printf("KVClient%d, " + format + "\n", out_var...)
+	}
+	return
+}
+
+func (ck *Clerk) DError(format string, a ...interface{}) (n int, err error) {
+	if ck.debug >= 0 {
+		custom_input := make([]interface{},1)
+		custom_input[0] = ck.clientID
+		out_var := append(custom_input , a...)
+		panic_out := fmt.Sprintf("KVClient%d, " + format + "\n", out_var...)
+		panic(panic_out)
+	}
+	return
 }

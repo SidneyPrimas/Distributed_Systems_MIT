@@ -337,7 +337,7 @@ func StartKVServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persiste
 	return kv
 }
 
-//********** KV Server FUNCTIONS (non-RPC) **********//
+//********** KV Server FUNCTIONS  **********//
 
 func (kv *RaftKV) processCommits() {
 

@@ -35,7 +35,7 @@ func MakeClerk(servers []*labrpc.ClientEnd) *Clerk {
 	ck.currentLeader = -1
 	ck.clientID = nrand()
 	ck.currentRPCNum = 0
-	ck.debug = 0
+	ck.debug = 1
 
 	return ck
 }
@@ -235,7 +235,7 @@ func (ck *Clerk) DPrintf2(format string, a ...interface{}) (n int, err error) {
 		custom_input := make([]interface{},1)
 		custom_input[0] = ck.clientID
 		out_var := append(custom_input , a...)
-		log.Printf("masterServer%d, " + format + "\n", out_var...)
+		log.Printf("masterClient%d, " + format + "\n", out_var...)
 	}
 	return
 }
@@ -245,7 +245,7 @@ func (ck *Clerk) DPrintf1(format string, a ...interface{}) (n int, err error) {
 		custom_input := make([]interface{},1)
 		custom_input[0] = ck.clientID
 		out_var := append(custom_input , a...)
-		log.Printf("masterServer%d, " + format + "\n", out_var...)
+		log.Printf("masterClient%d, " + format + "\n", out_var...)
 	}
 	return
 }
@@ -255,7 +255,7 @@ func (ck *Clerk) DPrintf_now(format string, a ...interface{}) (n int, err error)
 		custom_input := make([]interface{},1)
 		custom_input[0] = ck.clientID
 		out_var := append(custom_input , a...)
-		log.Printf("masterServer%d, " + format + "\n", out_var...)
+		log.Printf("masterClient%d, " + format + "\n", out_var...)
 	}
 	return
 }
@@ -265,7 +265,7 @@ func (ck *Clerk) DError(format string, a ...interface{}) (n int, err error) {
 		custom_input := make([]interface{},1)
 		custom_input[0] = ck.clientID
 		out_var := append(custom_input , a...)
-		panic_out := fmt.Sprintf("masterServer%d, " + format + "\n", out_var...)
+		panic_out := fmt.Sprintf("masterClient%d, " + format + "\n", out_var...)
 		panic(panic_out)
 	}
 	return
