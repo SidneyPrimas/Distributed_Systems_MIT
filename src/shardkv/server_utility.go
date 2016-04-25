@@ -5,6 +5,7 @@ import (
 	"log"
 	"bytes"
 	"fmt"
+	"shardmaster"
 )
 
 const debug_break = "---------------------------------------------------------------------------------------"
@@ -208,6 +209,23 @@ func (operation OpType) opToString() string {
 	return s
 }
 
+// Compare Shards and Groups of two Configs. 
+func compareShards(shard1 [shardmaster.NShards]int, shard2 [shardmaster.NShards]int) (bool) {
+
+	if (len(shard1) != len(shard2)) {
+		return false
+	}
+
+	// Shards only consider to be different if 1) gid different and 2) neither gid is Group#0. 
+	for k, v := range(shard1) {
+		if (shard2[k] != v) && (v != 0) && (shard2[k] != 0)  {
+			return false
+		}
+	}
+
+    return true
+}
+
 func compareOp(op1 Op, op2 Op) (sameOp bool) {
 
 	if (op1.CommandType == op2.CommandType) && (op1.Key == op2.Key) && (op1.Value == op2.Value) && (op1.ClientID == op2.ClientID) && (op1.RequestID == op2.RequestID) {
@@ -220,7 +238,9 @@ func compareOp(op1 Op, op2 Op) (sameOp bool) {
 
 func (kv *ShardKV) stringToOpType(op_s string) (op_type OpType) {
 
-	if op_s == "Append" {
+	if op_s == "Configuration" {
+		op_type = 4
+	}else if op_s == "Append" {
 		op_type = 3
 	} else if op_s == "Put" {
 		op_type = 2

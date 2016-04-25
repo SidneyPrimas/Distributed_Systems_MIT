@@ -1,19 +1,21 @@
 package shardkv
 
 
-// import "shardmaster"
+import "shardmaster"
 import "labrpc"
 import "raft"
 import "sync"
 import "encoding/gob"
+import "time"
 
 // Human readable
 type OpType int
 
 const (
-	Get    OpType = 1
-	Put    OpType = 2
-	Append OpType = 3
+	Get    			OpType = 1
+	Put    			OpType = 2
+	Append 			OpType = 3
+	Configuration 	OpType = 4
 )
 
 type Op struct {
@@ -25,6 +27,7 @@ type Op struct {
 	Value       string
 	ClientID    int64
 	RequestID   int64
+	Config 		shardmaster.Config
 }
 
 type CommitStruct struct {
@@ -53,12 +56,14 @@ type ShardKV struct {
 	maxraftstate int // snapshot if log grows this big
 
 	// Your definitions here.
-	persister *raft.Persister
-	debug int
-	shutdownChan         chan int
-	waitingForRaft_queue map[int]RPCResp
-	kvMap           map[string]string
-	lastCommitTable map[int64]CommitStruct
+	persister 				*raft.Persister
+	debug 					int
+	shutdownChan         	chan int
+	waitingForRaft_queue 	map[int]RPCResp
+	kvMap           		map[string]string
+	lastCommitTable 		map[int64]CommitStruct
+	mck 					*shardmaster.Clerk
+	committedConfig   		shardmaster.Config
 }
 
 
@@ -180,7 +185,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		// Unlock on any reply
 		kv.mu.Unlock()
 
-		// Process the next valid RPC Request with Start(): If 1) client isn't known or 2) the request follows the request already committed.
+	// Process the next valid RPC Request with Start(): If 1) client isn't known or 2) the request follows the request already committed.
 	} else if !inCommitTable {
 
 		// Unlock before Start (so Start can be in parallel)
@@ -238,6 +243,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		}
 	}
 }
+
 
 //
 // the tester calls Kill() when a ShardKV instance won't
@@ -339,7 +345,9 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
 	// Use something like this to talk to the shardmaster:
-	//kv.mck = shardmaster.MakeClerk(kv.masters)
+	kv.mck = shardmaster.MakeClerk(kv.masters)
+	// Get initial configuration Num. 
+	kv.committedConfig = kv.mck.Query(-1)
 
 	kv.DPrintf1("%s \n Action: New KV Server and Raft Instance Created. \n", debug_break)
 
@@ -353,6 +361,43 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 //********** Helper Functions **********//
 func (kv *ShardKV) checkConfiguration() {
 
+	// Go routine that loops until server is shutdown.
+	for {
+		
+		select {
+		// Garbage collection. 
+		case <-kv.shutdownChan:
+			return
+		case <-time.After(time.Millisecond * 100):
+			//Check if a higher configuration exists (configuration that is one higher).
+			configTemp := kv.mck.Query(kv.committedConfig.Num+1)
+			kv.mu.Lock()
+
+			// If there is an updated configuration, submit it through Raft. 
+			if (configTemp.Num == kv.committedConfig.Num+1) {
+
+				thisOp := Op{
+					CommandType: Configuration,
+					Config:      configTemp}
+
+
+				// Unlock before Start (so Start can be in parallel)
+				kv.mu.Unlock()
+				// Send Op Struct to Raft (using kv.rf.Start())
+				index, _, isLeader := kv.rf.Start(thisOp)
+				kv.mu.Lock()
+
+				// For Logging
+				if isLeader {
+
+					kv.DPrintf1("%s \n Action: KVServer%d is Leader. Sent CONFIGURATION CHANGE Request to Raft. Index => %d, Operation => %+v \n", debug_break, kv.me, index, thisOp)
+				
+				} 
+			}
+
+			kv.mu.Unlock()
+		}
+	}
 }
 
 func (kv *ShardKV) processCommits() {
@@ -381,8 +426,35 @@ func (kv *ShardKV) processCommits() {
 			// Type Assert: Package the Command from ApplyMsg into an Op Struct
 			thisCommand := commitMsg.Command.(Op)
 
+			if thisCommand.CommandType == Configuration {
+				kv.DPrintf1("Received CONFIGURATION OP on ApplyCh. kv.committedConfig => %+v, Operation => %+v \n", kv.committedConfig, thisCommand)
+				
+				// 1) Make sure this is the next configuration change that we expect.
+				// 2) Execute configuration change appropriately.  
+				if (kv.committedConfig.Num + 1 == thisCommand.Config.Num) {
+					kv.DPrintf2("Received NEXT configuration change. Process the change. \n")
+
+					noShardChange := compareShards(kv.committedConfig.Shards, thisCommand.Config.Shards)
+
+					// Update committedConfig when there is no shard change.
+					if (noShardChange) {
+						kv.committedConfig = thisCommand.Config
+
+					// Configuration change detected. Migrate shards appropriately. 
+					} else {
+						kv.DError("v.committedConfig => %+v, Operation => %+v \n", kv.committedConfig, thisCommand)
+					}
+
+				} else if (kv.committedConfig.Num == thisCommand.Config.Num) {
+					kv.DPrintf2("Received REPEAT configuration change. Process the change. \n")
+
+				} else {
+					kv.DError("Received a configuration change that's very old or very new through Raft. Should not be possible. \n")
+				}
+
+
 			// Execute Get Request
-			if thisCommand.CommandType == Get {
+			} else if thisCommand.CommandType == Get {
 
 				commitExists, returnValue := kv.checkCommitTable(thisCommand)
 
