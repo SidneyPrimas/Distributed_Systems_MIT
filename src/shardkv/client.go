@@ -114,7 +114,7 @@ func (ck *Clerk) Get(key string) string {
 						// RPC Completed so increment the RPC count by 1.
 						ck.currentRPCNum = ck.currentRPCNum + 1
 
-					return reply.Value
+						return reply.Value
 					}
 				}
 				// Handle situation where wrong group.

@@ -5,7 +5,8 @@ import (
 	"log"
 	"bytes"
 	"fmt"
-	"shardmaster"
+	"labrpc"
+	"time"
 )
 
 const debug_break = "---------------------------------------------------------------------------------------"
@@ -142,12 +143,12 @@ func (kv *ShardKV) updateRPCTable(thisOp Op, raftIndex int) chan RPCReturnInfo {
 			kv.waitingForRaft_queue[raftIndex] = new_rpcResp_struct
 		}
 
-		// If index doesn't exist: just add new RPCResp_struct
+	// If index doesn't exist: just add new RPCResp_struct
 	} else {
 		kv.waitingForRaft_queue[raftIndex] = new_rpcResp_struct
 	}
 
-	kv.DPrintf2("RPCTable  before raft: %v \n", kv.waitingForRaft_queue)
+	kv.DPrintf2("RPCTable before raft: %v \n", kv.waitingForRaft_queue)
 	return new_rpcResp_struct.resp_chan
 
 }
@@ -195,7 +196,121 @@ func (kv *ShardKV) killAllRPCs() {
 
 }
 
+// Compare Shards and Groups of two Configs. 
+func (kv *ShardKV) getShardsToExchange() (shardsToTransfer []int) {
+	kv.transitionState.groupsToTransferTo = make(map[int]bool)
+	kv.transitionState.groupsToReceiveFrom = make(map[int]bool)
+	
+
+	// Transfer Shard: Current server only sends shards when GID changes from kv.gid to another Gid. 
+	//Important Note: If the currentShard_gid is 0, we don't need to send or receive anything (because 0 is an invalid state).
+	for k, currentShard_gid := range(kv.committedConfig.Shards) {
+
+		// Error Checking
+		if (kv.transitionState.futureConfig.Shards[k] == 0) {
+			kv.DError("Moving towards an initialized shard with #0 as GID. Not taken account in implementation. ")
+		}
+
+		// Identify shards to be Transferred. 
+		if (currentShard_gid == kv.gid) && (currentShard_gid != 0) {
+			if (kv.transitionState.futureConfig.Shards[k] != kv.gid) {
+				// Map of Groups we need to send information to. 
+				futureShard_gid := kv.transitionState.futureConfig.Shards[k]
+				kv.transitionState.groupsToTransferTo[futureShard_gid] = true
+				// Index of specific shards that need to be transferred. 
+				shardsToTransfer = append(shardsToTransfer, k)
+			}
+		}
+
+		// Identify groups to receive from 
+		if (kv.gid == kv.transitionState.futureConfig.Shards[k]) && (currentShard_gid != 0) {
+			if (currentShard_gid != kv.gid) {
+				kv.transitionState.groupsToReceiveFrom[currentShard_gid] = true
+			}
+		}
+	}
+
+	return shardsToTransfer
+}
+
+func (kv *ShardKV) getKeysToTransfer(shardsToTransfer []int) (map[int]map[string]string) {
+
+	transferMap := make(map[int]map[string]string)
+
+	// Identify keys that needs to be transferred to new GID. 
+	// Loop through all keys. 
+	for mapKey, mapValue := range(kv.kvMap) {
+		// Identify shard that owns key. 
+		shardOfKey := key2shard(mapKey)
+
+		// If the shard needs to be moved, store the correspond key/value to be transferred. 
+		for _, transferShard := range(shardsToTransfer) {
+			
+			if (shardOfKey == transferShard) {
+				gid_transferTo := kv.transitionState.futureConfig.Shards[transferShard]
+
+				// Make sure map exists
+				if _, ok := transferMap[gid_transferTo]; ok {
+					transferMap[gid_transferTo][mapKey] = mapValue
+				// If the map doesn't exists
+				} else {
+					transferMap[gid_transferTo] = make(map[string]string)
+					transferMap[gid_transferTo][mapKey] = mapValue
+				}
+
+			}
+
+		}
+	}
+
+	return transferMap
+}
+
+
+// Select server to send request to.
+func (kv *ShardKV) findLeaderServer(si int, gid int) (selectedServer int) {
+
+	selectedServer, ok := kv.currentLeader[gid]
+	if (ok && selectedServer != -1){
+		return selectedServer
+	} else {
+		selectedServer = si
+		return selectedServer
+	}
+}
+
+func (kv *ShardKV) transitionCompleteCheck() {
+
+	if (len(kv.transitionState.groupsToTransferTo) == 0) && (len(kv.transitionState.groupsToReceiveFrom) == 0) {
+		kv.committedConfig = kv.transitionState.futureConfig
+		kv.transitionState.inTransition = false				
+	} 
+}
+
+
 //********** UTILITY FUNCTIONS **********//
+
+// Send out an RPC (with timeout implemented)
+func (kv *ShardKV) sendRPC(srv *labrpc.ClientEnd, function string, goArgs interface{}, goReply interface{}) (ok_out bool){
+
+	RPC_returned := make(chan bool)
+	go func() {
+		ok := srv.Call(function, goArgs, goReply)
+
+		RPC_returned <- ok
+	}()
+
+	//Allows for RPC Timeout
+	ok_out = false
+	select {
+	case <-time.After(time.Millisecond * 250):
+	  	ok_out = false
+	case ok_out = <-RPC_returned:
+	}
+
+	return ok_out
+}
+
 func (operation OpType) opToString() string {
 
 	s := ""
@@ -209,22 +324,6 @@ func (operation OpType) opToString() string {
 	return s
 }
 
-// Compare Shards and Groups of two Configs. 
-func compareShards(shard1 [shardmaster.NShards]int, shard2 [shardmaster.NShards]int) (bool) {
-
-	if (len(shard1) != len(shard2)) {
-		return false
-	}
-
-	// Shards only consider to be different if 1) gid different and 2) neither gid is Group#0. 
-	for k, v := range(shard1) {
-		if (shard2[k] != v) && (v != 0) && (shard2[k] != 0)  {
-			return false
-		}
-	}
-
-    return true
-}
 
 func compareOp(op1 Op, op2 Op) (sameOp bool) {
 
@@ -292,7 +391,7 @@ func (sm *ShardKV) DError(format string, a ...interface{}) (n int, err error) {
 		custom_input[1] = sm.me
 		out_var := append(custom_input , a...)
 		panic_out := fmt.Sprintf("GID%d, KVServer%d, " + format + "\n", out_var...)
-		panic(panic_out)
+		log.Fatalf(panic_out)
 	}
 	return
 }

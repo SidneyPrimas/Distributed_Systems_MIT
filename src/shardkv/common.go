@@ -47,3 +47,14 @@ type GetReply struct {
 	Err         Err
 	Value       string
 }
+
+type AddShardsArgs struct {
+	ShardKeys			map[string]string
+	LastCommitTable 	map[int64]CommitStruct
+	ClientID 			int64
+	RequestID 			int64
+}
+
+type AddShardsReply struct {
+	WrongLeader				bool
+}
