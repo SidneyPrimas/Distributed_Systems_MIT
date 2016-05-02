@@ -13,13 +13,19 @@ const debug_break = "-----------------------------------------------------------
 
 //********** Helper Functions **********//
 // Determine if we need to take a snapshot. Handle the process of obtaining a snapshot. 
+// Note: Take  snapshot after we execute command to ensure that the snapshot includes the last committed message in map.  
+// Note: Cannot lock communication channels with Raft (not from KVServer to Raft)
 func (kv *ShardKV) manageSnapshots(lastIncludedIndex int, lastIncludedTerm int) {
+
+	// Don't snapshot if maxraftstate == -1. 
+	if (kv.maxraftstate<=-1) {
+		return
+	}
 
 	// Determine if we need to take a snapshot 
 	// If size of stored raft state in bytes>= maxraftstate, take snapshot.
 	currentRaftSize := kv.persister.RaftStateSize()
-	if (currentRaftSize >= kv.maxraftstate) {
-		kv.mu.Lock()
+	if (currentRaftSize >= kv.maxraftstate)  {
 		kv.DPrintf1("KVServer%d, Action: Create Snapsthot. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n", kv.me, kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
 
 		// Marshal data into snapshot buffer
@@ -31,9 +37,8 @@ func (kv *ShardKV) manageSnapshots(lastIncludedIndex int, lastIncludedTerm int) 
 	 	e.Encode(kv.lastCommitTable)
 	 	data_snapshot := w.Bytes()
 
-	 	// Note: Don't lock communication channes with raft from KVserver
-	 	kv.mu.Unlock()
 	 	// Send data to raft to 1) persist data and 2) truncate log. 
+	 	// Note: Go routine does not keep the lock. 
 		go kv.rf.TruncateLogs(lastIncludedIndex, lastIncludedTerm, data_snapshot)
 
 	}
@@ -154,7 +159,7 @@ func (kv *ShardKV) updateRPCTable(thisOp Op, raftIndex int) chan RPCReturnInfo {
 }
 
 // After receiving operation from Raft
-func (kv *ShardKV) handleOpenRPCs(raftIndex int, raftOp Op, valueToSend string) {
+func (kv *ShardKV) handleOpenRPCs(raftIndex int, raftOp Op, valueToSend string, error Err) {
 
 	//Find all open RPCs at this index. Return the appropriate value.
 	for index, rpcResp_struct := range kv.waitingForRaft_queue {
@@ -163,20 +168,20 @@ func (kv *ShardKV) handleOpenRPCs(raftIndex int, raftOp Op, valueToSend string) 
 			sameOp := compareOp(rpcResp_struct.Op, raftOp)
 
 			// Found the correct RPC at index
-			if sameOp {
+			if sameOp && error == OK {
 
 				// Respond to Client with success
-				rpcResp_struct.resp_chan <- RPCReturnInfo{success: true, value: valueToSend}
+				rpcResp_struct.resp_chan <- RPCReturnInfo{success: true, value: valueToSend, error: OK}
 				// Delete index
 				delete(kv.waitingForRaft_queue, index)
 
-				// Found different RPC at inex
+			// Found different RPC at inex
 			} else {
 
 				// Respond to Client with failure
 				// Note: Since we got the same index but a different Op, this means that the operation at the current index
 				// is stale (submitted at an older term, or we this server thinks they are leader, but are not).
-				rpcResp_struct.resp_chan <- RPCReturnInfo{success: false, value: ""}
+				rpcResp_struct.resp_chan <- RPCReturnInfo{success: false, value: "", error: error}
 				delete(kv.waitingForRaft_queue, index)
 
 			}
@@ -282,8 +287,9 @@ func (kv *ShardKV) findLeaderServer(si int, gid int) (selectedServer int) {
 func (kv *ShardKV) transitionCompleteCheck() {
 
 	if (len(kv.transitionState.groupsToTransferTo) == 0) && (len(kv.transitionState.groupsToReceiveFrom) == 0) {
+		kv.transitionState.inTransition = false		
+		kv.DPrintf1("Action: CONFIGURATION TRANSITION COMPLETED. Previous Configuration => %+v, New Configuration => %+v, Transition Stats => %+v \n", kv.committedConfig, kv.transitionState.futureConfig, kv.transitionState)		
 		kv.committedConfig = kv.transitionState.futureConfig
-		kv.transitionState.inTransition = false				
 	} 
 }
 

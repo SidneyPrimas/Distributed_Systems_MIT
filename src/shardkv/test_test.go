@@ -6,8 +6,8 @@ import "time"
 import "fmt"
 import "sync/atomic"
 import "math/rand"
-import "os"
-import "os/signal"
+//import "os"
+//import "os/signal"
 
 func check(t *testing.T, ck *Clerk, key string, value string) {
 	v := ck.Get(key)
@@ -21,14 +21,6 @@ func check(t *testing.T, ck *Clerk, key string, value string) {
 //
 func TestStaticShards(t *testing.T) {
 
-	// Sidney: Go Routine to trace down live or dead locks
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	go func() {
-	    <-signalChan
-	    panic("ctrl c")
-	}()
-
 	fmt.Printf("Test: static shards ...\n")
 
 	cfg := make_config(t, 3, false, -1)
@@ -39,6 +31,8 @@ func TestStaticShards(t *testing.T) {
 	cfg.join(0)
 	cfg.join(1)
 
+	fmt.Printf("Group 0 and Group 1 Join...\n")
+
 	n := 10
 	ka := make([]string, n)
 	va := make([]string, n)
@@ -47,6 +41,8 @@ func TestStaticShards(t *testing.T) {
 		va[i] = randstring(20)
 		ck.Put(ka[i], va[i])
 	}
+
+	fmt.Printf("Checking Puts on Group 0 and Group 1 ...\n")
 	for i := 0; i < n; i++ {
 		check(t, ck, ka[i], va[i])
 	}
@@ -54,6 +50,7 @@ func TestStaticShards(t *testing.T) {
 	// make sure that the data really is sharded by
 	// shutting down one shard and checking that some
 	// Get()s don't succeed.
+	fmt.Printf("Group 1 is shutdown...\n")
 	cfg.ShutdownGroup(1)
 	cfg.checklogs() // forbid snapshots
 
@@ -84,6 +81,7 @@ func TestStaticShards(t *testing.T) {
 	}
 
 	// bring the crashed shard/group back to life.
+	fmt.Printf("Bring Group 1 back to life ...\n")
 	cfg.StartGroup(1)
 	for i := 0; i < n; i++ {
 		check(t, ck, ka[i], va[i])

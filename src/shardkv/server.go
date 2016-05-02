@@ -41,6 +41,7 @@ type CommitStruct struct {
 type RPCReturnInfo struct {
 	success bool
 	value   string
+	error 	Err
 }
 
 type RPCResp struct {
@@ -87,12 +88,30 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 	// Your code here.
 	kv.mu.Lock()
 
-	// 1) Convert GetArgs into  Op Struct
+	// Transition Check: If server is in transition, automatically reject incoming RPCs (they will just clog the Raft log)
+	if (kv.transitionState.inTransition) {
+		reply.WrongLeader = true
+		reply.Err = OK
+		kv.mu.Unlock()
+		return
+	}
+
+	// Shard Check: Check if group owns the incoming key. 
+	thisShard := key2shard(args.Key)
+	if (kv.committedConfig.Shards[thisShard] != kv.gid) {
+		reply.WrongLeader = true
+		reply.Err = ErrWrongGroup
+		kv.mu.Unlock()
+		return
+	}
+
+	// Convert GetArgs into  Op Struct
 	thisOp := Op{
 		CommandType: Get,
 		Key:         args.Key,
 		ClientID:    args.ClientID,
 		RequestID:   args.RequestID}
+
 
 	// Determine if RequestID has already been committed, or is the next request to commit.
 	inCommitTable, returnValue := kv.checkCommitTable(thisOp)
@@ -107,9 +126,8 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 		reply.WrongLeader = false
 		reply.Value = returnValue // Return the value already committed.
 		reply.Err = OK
-
-		// Unlock on any reply
 		kv.mu.Unlock()
+		return
 
 		// Process the next valid RPC Request with Start(): If 1) client isn't known or 2) the request follows the request already committed.
 	} else if !inCommitTable {
@@ -130,9 +148,8 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 			reply.WrongLeader = true
 			reply.Value = "" // Return value from key. Returns "" if key doesn't exist
 			reply.Err = OK
-
-			// Unlock on any reply
 			kv.mu.Unlock()
+			return
 
 			// 4) Handle Response: If Raft is leader, wait until raft committed Op Struct to log
 		} else if isLeader {
@@ -151,31 +168,64 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 			// Once it receives the response, just wait until scheduled to run.
 			// Error if we receive two writes on the same channel.
 			kv.mu.Lock()
-			// Successful commit indicated by Raft: Respond to Client
-			if rpcReturnInfo.success && open {
+			// Operation successfully executed. 
+			if rpcReturnInfo.success && open && rpcReturnInfo.error == OK {
 				kv.DPrintf1("Action: GET APPLIED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
 				reply.WrongLeader = false
 				reply.Value = rpcReturnInfo.value // Return value from key. Returns "" if key doesn't exist
 				reply.Err = OK
+				kv.mu.Unlock()
+				return
 
-				// Commit Failed: If this server discovers it's not longer the leader, then tell the client to find the real leader,
-				// and retry with the request there.
+			// Op Failed to execute properly
 			} else if !open || !rpcReturnInfo.success {
-				kv.DPrintf1("Action: GET ABORTED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
-				reply.WrongLeader = true
-				reply.Err = OK
 
-			}
-			kv.mu.Unlock()
+				// 1) If this server discovers it's not longer the leader, then tell the client to find the real leader. 
+				if (!open || rpcReturnInfo.error == OK) {
+					kv.DPrintf1("Action: GET ABORTED since no longer leader. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
+					reply.WrongLeader = true
+					reply.Err = rpcReturnInfo.error
+					kv.mu.Unlock()
+					return
+				// 2) If this server discovers it doesn't own the key, tell client to find correct group. 
+				} else if (rpcReturnInfo.error == ErrWrongGroup) {
+					kv.DPrintf1("Action: GET ABORTED since ErrWrongGroup. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
+					reply.WrongLeader = false
+					reply.Err = rpcReturnInfo.error
+					kv.mu.Unlock()
+					return
+				}
 
+			// RPC Channel closed: Server no longer is leader. 
+			} 
 		}
-
 	}
+
+	//Error Checking
+	kv.DError("Error in Get RPC. Should never return at end of function. ")
+
 }
 
 func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	// Your code here.
 	kv.mu.Lock()
+
+	// Transition Check: If server is in transition, automatically reject incoming RPCs (they will just clog the Raft log)
+	if (kv.transitionState.inTransition) {
+		reply.WrongLeader = true
+		reply.Err = OK
+		kv.mu.Unlock()
+		return
+	}
+
+	// Shard Check: Check if group owns the incoming key. 
+	thisShard := key2shard(args.Key)
+	if (kv.committedConfig.Shards[thisShard] != kv.gid) {
+		reply.WrongLeader = true
+		reply.Err = ErrWrongGroup
+		kv.mu.Unlock()
+		return
+	}
 
 	// 1) Convert PutAppendArgs into  Op Struct. Include ClientId and RequestID so Servers can update their commitTable
 	thisOp := Op{
@@ -197,9 +247,8 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		// However, if the server has the right information for the client, send it.
 		reply.WrongLeader = false
 		reply.Err = OK
-
-		// Unlock on any reply
 		kv.mu.Unlock()
+		return
 
 	// Process the next valid RPC Request with Start(): If 1) client isn't known or 2) the request follows the request already committed.
 	} else if !inCommitTable {
@@ -218,6 +267,8 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 			kv.DPrintf2("Action: Rejected PutAppend. KVServer%d not Leader.  \n", kv.me)
 			reply.WrongLeader = true
 			reply.Err = OK
+			kv.mu.Unlock()
+			return
 
 			// Unlock on any reply
 			kv.mu.Unlock()
@@ -239,25 +290,38 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 			// Error if we receive two writes on the same channel.
 			kv.mu.Lock()
 			// Successful commit indicated by Raft: Respond to Client
-			if open && rpcReturnInfo.success {
+			if rpcReturnInfo.success && open && rpcReturnInfo.error == OK {
 
 				kv.DPrintf1("Action: PUTAPPEND APPLIED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n",index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
 				reply.WrongLeader = false
 				reply.Err = OK
+				kv.mu.Unlock()
+				return
 
-				// Commit Failed: If this server discovers it's no longer the leader, then tell the client to find the real leader,
-				// and retry with the request there.
+			//OP Failed to Execute
 			} else if !open || !rpcReturnInfo.success {
 
-				kv.DPrintf1("Action: PUTAPPEND ABORTED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
-				reply.WrongLeader = true
-				reply.Err = OK
-
+				// 1) If this server discovers it's not longer the leader, then tell the client to find the real leader. 
+				if (!open || rpcReturnInfo.error == OK) {
+					kv.DPrintf1("Action: PUTAPPEND ABORTED since no longer leader. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
+					reply.WrongLeader = true
+					reply.Err = rpcReturnInfo.error
+					kv.mu.Unlock()
+					return
+				// 2) If this server discovers it doesn't own the key, tell client to find correct group. 
+				} else if (rpcReturnInfo.error == ErrWrongGroup) {
+					kv.DPrintf1("Action: PUTAPPEND ABORTED since ErrWrongGroup. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
+					reply.WrongLeader = false
+					reply.Err = rpcReturnInfo.error
+					kv.mu.Unlock()
+					return
+				}
 			}
-
-			kv.mu.Unlock()
 		}
 	}
+
+	//Error Checking
+	kv.DError("Error in PUTAPPEND RPC. Should never return at end of function. ")
 }
 
 // Receive keys from new shard. 
@@ -389,8 +453,6 @@ func (kv *ShardKV) sendShardToGroup(gid int, args AddShardsArgs, futureConfig sh
 					//Update stored Leader
 					kv.currentLeader[gid] = selectedServer
 
-					delete(kv.transitionState.groupsToTransferTo, gid)
-
 					return
 
 				}
@@ -514,7 +576,7 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 	// Use something like this to talk to the shardmaster:
 	kv.mck = shardmaster.MakeClerk(kv.masters)
 	// Get initial configuration Num. 
-	kv.committedConfig = kv.mck.Query(-1)
+	kv.committedConfig = kv.mck.Query(0)
 
 	kv.DPrintf1("%s \n Action: New KV Server and Raft Instance Created. \n", debug_break)
 
@@ -538,6 +600,13 @@ func (kv *ShardKV) checkConfiguration() {
 		case <-kv.shutdownChan:
 			return
 		case <-time.After(time.Millisecond * 100):
+
+			// Transition Check: If server is in transition, don't clog up the Raft log. 
+			if (kv.transitionState.inTransition) {
+				continue
+			}
+
+
 			//Check if a higher configuration exists (configuration that is one higher).
 			configTemp := kv.mck.Query(kv.committedConfig.Num+1)
 			kv.mu.Lock()
@@ -582,6 +651,7 @@ func (kv *ShardKV) processCommits() {
 
 			kv.DPrintf2("State before Receiving OP on applyCh. commitMsg => %+v, Map => %+v, RPC_Queue => %+v, CommitTable %+v \n", commitMsg, kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
 
+			// HANDLE SNAPSHOT
 			if (commitMsg.UseSnapshot) {
 				kv.readPersistSnapshot(commitMsg.Snapshot)
 				kv.DPrintf2("State Machine reset with snapshot. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n", kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
@@ -595,6 +665,7 @@ func (kv *ShardKV) processCommits() {
 			// Type Assert: Package the Command from ApplyMsg into an Op Struct
 			thisCommand := commitMsg.Command.(Op)
 
+			// HANDLE OPs DURING TRNASITION
 			if kv.transitionState.inTransition && (thisCommand.CommandType != ShardTransfer) {
 
 				kv.DPrintf1("Action: While in-transition state, skipped OP on applyCh. thisCommand => %+v", thisCommand)
@@ -608,6 +679,7 @@ func (kv *ShardKV) processCommits() {
 				continue
 			}
 
+			// HANDLE ALL OPs 
 			if thisCommand.CommandType == Configuration {
 				kv.DPrintf1("Received CONFIGURATION OP on ApplyCh. kv.committedConfig => %+v, Operation => %+v \n", kv.committedConfig, thisCommand)
 				
@@ -635,22 +707,29 @@ func (kv *ShardKV) processCommits() {
 
 							
 					// Send out each of the maps to the appripriate GIDs. 
-					for gid, shardMap := range(transferMap) {
+					for gid := range(kv.transitionState.groupsToTransferTo) {
+
+						// If tere are keys to send, send to group. 
+						//if shardMap, ok := transferMap[gid]; (ok && len(shardMap) > 0) {
 						
-						args := AddShardsArgs{}
-						args.ShardKeys = shardMap
-						args.LastCommitTable = kv.lastCommitTable
-						args.ClientID 	= int64(kv.gid)
-						// Create random requestID to ensure we return to the correct
-						args.RequestID = int64(kv.transitionState.futureConfig.Num)
-						
-						kv.sendShardToGroup(gid, args, kv.transitionState.futureConfig)
+							args := AddShardsArgs{}
+							args.ShardKeys = transferMap[gid]
+							args.LastCommitTable = kv.lastCommitTable
+							args.ClientID 	= int64(kv.gid)
+							// Create random requestID to ensure we return to the correct
+							args.RequestID = int64(kv.transitionState.futureConfig.Num)
+							
+							kv.sendShardToGroup(gid, args, kv.transitionState.futureConfig)
+
+						//}
+
+						delete(kv.transitionState.groupsToTransferTo, gid)
 
 					}
 
 					// Error catching
 					if (len(kv.transitionState.groupsToTransferTo) != 0) {
-						kv.DError("Error: All shards should have been sent at this point. But, they have not been.")
+						kv.DError("Error: All shards should have been sent at this point. But, they have not been. kv.committedConfig => %+v kv.transitionState => %+v, transferMap => %+v", kv.committedConfig, kv.transitionState, transferMap)
 					}
 						
 
@@ -669,7 +748,7 @@ func (kv *ShardKV) processCommits() {
 			// Execute Get Request
 			} else if (thisCommand.CommandType == ShardTransfer) {
 				if (kv.transitionState.inTransition) && (int(thisCommand.RequestID) == kv.transitionState.futureConfig.Num) {
-					kv.DPrintf1("Action: Received and processing SHARD TRANSFER OP on ApplyCh. kv.committedConfig => %+v, Operation => %+v \n", kv.committedConfig, thisCommand)
+					kv.DPrintf1("Action: Received and processing SHARD TRANSFER OP on ApplyCh. Operation => %+v, commitMsg => %+v, kv.committedConfig => %+v \n", thisCommand, commitMsg, kv.committedConfig)
 
 					// Check commitTable
 					commitExists, _ := kv.checkCommitTable(thisCommand)
@@ -691,22 +770,33 @@ func (kv *ShardKV) processCommits() {
 
 						// Delete gid from transition state. 
 						delete(kv.transitionState.groupsToReceiveFrom, int(thisCommand.ClientID))
-						// Check if transition complete. 
-						kv.transitionCompleteCheck()
 
 						kv.DPrintf2("Action: Executed SHARD TRANSFER OP on ApplyCh. kv.committedConfig => %+v, Operation => %+v, kv.transitionState => %+v \n", kv.committedConfig, thisCommand, kv.transitionState )
 
+						// Check if transition complete. 
+						kv.transitionCompleteCheck()
 
 					}
 
-					kv.DPrintf2("Action: Check for open RPC in after Shard Transfer Op.  waitingForRaft_queue => %+v \n", kv.waitingForRaft_queue)
 					//Return RPC to Client with correct value.
-					kv.handleOpenRPCs(commitMsg.Index, thisCommand, "")
+					kv.handleOpenRPCs(commitMsg.Index, thisCommand, "", OK)
+					
+
 				} else {
-					//
+					//Todo
+					kv.DPrintf1("Reject ShardTransfer!!! \n")
 					delete(kv.waitingForRaft_queue, commitMsg.Index)
 				}
 			} else if thisCommand.CommandType == Get {
+
+				// Shard Check: Check if group owns the incoming key. 
+				thisShard := key2shard(thisCommand.Key)
+				if (kv.committedConfig.Shards[thisShard] != kv.gid) {
+					kv.handleOpenRPCs(commitMsg.Index, thisCommand, "", ErrWrongGroup)
+					kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
+					kv.mu.Unlock()
+					continue
+				}
 
 				commitExists, returnValue := kv.checkCommitTable(thisCommand)
 
@@ -732,10 +822,20 @@ func (kv *ShardKV) processCommits() {
 				}
 
 				// If there is an outstanding RPC, return the appropriate value.
-				kv.handleOpenRPCs(commitMsg.Index, thisCommand, returnValue)
+				kv.handleOpenRPCs(commitMsg.Index, thisCommand, returnValue, OK)
+				kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
 
 				// Execute Put Request
 			} else if thisCommand.CommandType == Put {
+
+				// Shard Check: Check if group owns the incoming key. 
+				thisShard := key2shard(thisCommand.Key)
+				if (kv.committedConfig.Shards[thisShard] != kv.gid) {
+					kv.handleOpenRPCs(commitMsg.Index, thisCommand, "", ErrWrongGroup)
+					kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
+					kv.mu.Unlock()
+					continue
+				}
 
 				// Check commitTable
 				commitExists, _ := kv.checkCommitTable(thisCommand)
@@ -750,10 +850,20 @@ func (kv *ShardKV) processCommits() {
 				}
 
 				//Return RPC to Client with correct value.
-				kv.handleOpenRPCs(commitMsg.Index, thisCommand, "")
+				kv.handleOpenRPCs(commitMsg.Index, thisCommand, "", OK)
+				kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
 
 				// Execute Append Request
 			} else if thisCommand.CommandType == Append {
+
+				// Shard Check: Check if group owns the incoming key. 
+				thisShard := key2shard(thisCommand.Key)
+				if (kv.committedConfig.Shards[thisShard] != kv.gid) {
+					kv.handleOpenRPCs(commitMsg.Index, thisCommand, "", ErrWrongGroup)
+					kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
+					kv.mu.Unlock()
+					continue
+				}
 
 				// Check commitTable
 				commitExists, _ := kv.checkCommitTable(thisCommand)
@@ -768,7 +878,8 @@ func (kv *ShardKV) processCommits() {
 				}
 
 				//Return RPC to Client with correct value.
-				kv.handleOpenRPCs(commitMsg.Index, thisCommand, "")
+				kv.handleOpenRPCs(commitMsg.Index, thisCommand, "", OK)
+				kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
 
 			} else {
 				kv.DError("Error: Operation Recieved on applyCh is neither 'Append', 'Put' nor 'Get'. \n")
@@ -777,14 +888,7 @@ func (kv *ShardKV) processCommits() {
 			kv.DPrintf2("State after Receiving OP on applyCh. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n \n \n ",kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
 
 			kv.mu.Unlock()
-
-			// Determine if snapshots are needed, and handle the process of obtaining a snapshot. 
-			// Note: Take  snapshot after we execute command to ensure that the snapshot includes the last committed message in map. 
-			// Note: If kv.maxraftstate = -1, this indicates snapshotting is not being used. 
-			// Note: Cannot lock communication channels with Raft (not from KVServer to Raft)
-			if (kv.maxraftstate>-1) {
-				kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
-			}
+			kv.DPrintf2("Help ME!!!!")
 
 
 		case <-kv.shutdownChan:
