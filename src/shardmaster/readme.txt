@@ -16,6 +16,7 @@ Holistic To Do:
 + Investigate go routines: Should I have goRoutines when I query the shardmaster? 
 + Do not enter Query configuration changes into raft. Essentially, these have no effect on any of the servers. They are ignored in every way accept to increase the commit Num. So, when receiving this as a new configuration, just reject it. In this case, don't even change the configuration Num (since in order to change a committed configuration we need to go through Raft). Instead, allow raft to accept configuration changes with a Num greater than the current configuration Num. 
 + Snapshotting during transition: Currently, we don't take any snapshots during the transition. The reason for this is that the snapshot assumes that the operation in question has been completed, and we no longer need to log for that operation. However, in the transition, that's not the case. Thus, if we decide we need to snapshot the transition, we also need to snapshot 1) the committedConfig and 2) the transitionState. The transitionState is especially important because it captures the changes to the state of the system during the transition. 
++ Think about: 1) Should I overwrite keys (without thinking) when I transfer shards and 2) should I delete keys after transferring shards. Also, how do I best error check this? 
 
 
 High Priority To Do: 

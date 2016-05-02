@@ -707,21 +707,17 @@ func (kv *ShardKV) processCommits() {
 
 							
 					// Send out each of the maps to the appripriate GIDs. 
+					// Important: Even if there are no keys to send, we still need to send an RPC to gid as ackowledgement. 
 					for gid := range(kv.transitionState.groupsToTransferTo) {
-
-						// If tere are keys to send, send to group. 
-						//if shardMap, ok := transferMap[gid]; (ok && len(shardMap) > 0) {
 						
-							args := AddShardsArgs{}
-							args.ShardKeys = transferMap[gid]
-							args.LastCommitTable = kv.lastCommitTable
-							args.ClientID 	= int64(kv.gid)
-							// Create random requestID to ensure we return to the correct
-							args.RequestID = int64(kv.transitionState.futureConfig.Num)
-							
-							kv.sendShardToGroup(gid, args, kv.transitionState.futureConfig)
-
-						//}
+						args := AddShardsArgs{}
+						args.ShardKeys = transferMap[gid]
+						args.LastCommitTable = kv.lastCommitTable
+						args.ClientID 	= int64(kv.gid)
+						// Create random requestID to ensure we return to the correct
+						args.RequestID = int64(kv.transitionState.futureConfig.Num)
+						
+						kv.sendShardToGroup(gid, args, kv.transitionState.futureConfig)
 
 						delete(kv.transitionState.groupsToTransferTo, gid)
 
@@ -762,6 +758,7 @@ func (kv *ShardKV) processCommits() {
 							kv.kvMap[key] = value
 						}
 
+						// Todo: Transfer full commit table
 						kv.lastCommitTable = thisCommand.LastCommitTable
 
 						//Update CommitTable
@@ -888,7 +885,6 @@ func (kv *ShardKV) processCommits() {
 			kv.DPrintf2("State after Receiving OP on applyCh. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n \n \n ",kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
 
 			kv.mu.Unlock()
-			kv.DPrintf2("Help ME!!!!")
 
 
 		case <-kv.shutdownChan:
