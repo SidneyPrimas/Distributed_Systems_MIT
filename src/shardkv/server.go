@@ -24,7 +24,7 @@ type Op struct {
 	// Your definitions here.
 	// Field names must start with capital letters,
 	// otherwise RPC will break.
-	CommandType OpType
+	CommandType 		OpType
 	Key         		string
 	Value       		string
 	ClientID    		int64
@@ -52,20 +52,21 @@ type RPCResp struct {
 }
 
 type TransitionState struct {
-	inTransition			bool
+	InTransition			bool
 	// Tracks groups from which we needs keys from.
-	groupsToReceiveFrom		map[int]bool
+	GroupsToReceiveFrom		map[int]bool
 	// Transition to this configuration. 
-	futureConfig 			shardmaster.Config
+	FutureConfig 			shardmaster.Config
 }
 
 
 type ShardPackage struct {
-	gidToSendTo 			int
-	transferKeys 			map[string]string
-	transferCommitTable 	map[int64]CommitStruct
-	futureConfig  			shardmaster.Config
+	GidToSendTo 			int
+	TransferKeys 			map[string]string
+	TransferCommitTable 	map[int64]CommitStruct
+	FutureConfig  			shardmaster.Config
 }
+
 
 type ShardKV struct {
 	mu           sync.Mutex
@@ -99,7 +100,7 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 	kv.mu.Lock()
 
 	// Transition Check: If server is in transition, automatically reject incoming RPCs (they will just clog the Raft log)
-	if (kv.transitionState.inTransition) {
+	if (kv.transitionState.InTransition) {
 		reply.WrongLeader = true
 		reply.Err = OK
 		kv.mu.Unlock()
@@ -221,7 +222,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	kv.mu.Lock()
 
 	// Transition Check: If server is in transition, automatically reject incoming RPCs (they will just clog the Raft log)
-	if (kv.transitionState.inTransition) {
+	if (kv.transitionState.InTransition) {
 		reply.WrongLeader = true
 		reply.Err = OK
 		kv.mu.Unlock()
@@ -378,7 +379,7 @@ func (kv *ShardKV) AddShardKeys(args *AddShardsArgs, reply *AddShardsReply) {
 	} else {
 
 		// Only put shards into Raft when: the group is transition to the correctin configuration number. 
-		if (kv.transitionState.inTransition) && (kv.committedConfig.Num + 1 == int(args.RequestID)) {
+		if (kv.transitionState.InTransition) && (kv.committedConfig.Num + 1 == int(args.RequestID)) {
 
 			// Unlock before Start (so Start can be in parallel)
 			kv.mu.Unlock()
@@ -589,6 +590,10 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 	// call gob.Register on structures you want
 	// Go's RPC library to marshall/unmarshall.
 	gob.Register(Op{})
+	gob.Register(TransitionState{})
+	gob.Register(ShardPackage{})
+	gob.Register(CommitStruct{})
+
 
 	kv := new(ShardKV)
 	kv.me = me
@@ -610,11 +615,10 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 
 	// Records transition state from one configuratino to another
 	kv.transitionState = TransitionState{}
-	kv.transitionState.inTransition = false
+	kv.transitionState.InTransition = false
 
 	// Records shards that need to be sent. 
 	kv.shardTransferStorage = make([]ShardPackage, 0)
-	kv.activeTransferRPCs = make([]bool, 0)
 
 	// Creates Queue to keep tract of outstand Client RPCs (while waiting for Raft)
 	kv.waitingForRaft_queue = make(map[int]RPCResp)
@@ -677,14 +681,14 @@ func (kv *ShardKV) sendShardPackages() {
 				if (!kv.activeTransferRPCs[k]) {
 
 					args := AddShardsArgs{}
-					args.ShardKeys = shardPackage.transferKeys
-					args.LastCommitTable = shardPackage.transferCommitTable
+					args.ShardKeys = shardPackage.TransferKeys
+					args.LastCommitTable = shardPackage.TransferCommitTable
 					args.ClientID 	= int64(kv.gid)
 					// Create random requestID to ensure we return to the correct
-					args.RequestID = int64(shardPackage.futureConfig.Num)
+					args.RequestID = int64(shardPackage.FutureConfig.Num)
 
 
-					go kv.sendShardsToGroup(shardPackage.gidToSendTo, args, shardPackage.futureConfig)
+					go kv.sendShardsToGroup(shardPackage.GidToSendTo, args, shardPackage.FutureConfig)
 
 
 
@@ -710,7 +714,7 @@ func (kv *ShardKV) checkConfiguration() {
 		case <-time.After(time.Millisecond * 100):
 
 			// Transition Check: If server is in transition, don't clog up the Raft log. 
-			if (kv.transitionState.inTransition) {
+			if (kv.transitionState.InTransition) {
 				continue
 			}
 
@@ -754,6 +758,7 @@ func (kv *ShardKV) processCommits() {
 		select {
 		case commitMsg := <-kv.applyCh:
 
+
 			// Lock the entire code-set that handles returned Operations from applyCh
 			kv.mu.Lock()
 
@@ -775,7 +780,7 @@ func (kv *ShardKV) processCommits() {
 
 
 			// Skip operations related to kvMap during configuration transitions 
-			if (kv.transitionState.inTransition) && 
+			if (kv.transitionState.InTransition) && 
 				(thisCommand.CommandType == Configuration || thisCommand.CommandType == Get || 
 				thisCommand.CommandType == Put || thisCommand.CommandType == Append) {
 
@@ -812,15 +817,15 @@ func (kv *ShardKV) processCommits() {
 
 
 					// Execute Configuration Operation: Update transition state
-					kv.transitionState.inTransition = true
-					kv.transitionState.futureConfig = thisCommand.Config
+					kv.transitionState.InTransition = true
+					kv.transitionState.FutureConfig = thisCommand.Config
 
 					// Get array of groups to exchange and array of shards that need to be transferred. 
 					// Changes from Group0 are not considered shard changes (since no keys need to be moved). 
 					groupsToReceiveFrom, groupsToTransferTo, shardsToTransfer := kv.getGroupsAndShardsToExchange()
 
 					// Update transition state
-					kv.transitionState.groupsToReceiveFrom = groupsToReceiveFrom
+					kv.transitionState.GroupsToReceiveFrom = groupsToReceiveFrom
 
 					// For each gid we transfer to, a key/value map is created. 
 					// transferMap is indexed by gid of group we need to send it to. 
@@ -833,10 +838,10 @@ func (kv *ShardKV) processCommits() {
 					for gid := range(groupsToTransferTo) {
 
 						newShardPackage := ShardPackage{}
-						newShardPackage.gidToSendTo = gid 
-						newShardPackage.transferKeys = transferMap[gid]
-						newShardPackage.transferCommitTable = transferCommitTable[gid]
-						newShardPackage.futureConfig = kv.transitionState.futureConfig
+						newShardPackage.GidToSendTo = gid 
+						newShardPackage.TransferKeys = transferMap[gid]
+						newShardPackage.TransferCommitTable = transferCommitTable[gid]
+						newShardPackage.FutureConfig = kv.transitionState.FutureConfig
 
 						kv.shardTransferStorage = append(kv.shardTransferStorage, newShardPackage)
 						kv.activeTransferRPCs = append(kv.activeTransferRPCs, false)
@@ -864,7 +869,7 @@ func (kv *ShardKV) processCommits() {
 			// Execute ShardTransfer Request
 			} else if (thisCommand.CommandType == ShardTransfer) {
 				// Similar functionality to the commit table. 
-				if (kv.transitionState.inTransition) && (int(thisCommand.RequestID) == kv.transitionState.futureConfig.Num) {
+				if (kv.transitionState.InTransition) && (int(thisCommand.RequestID) == kv.transitionState.FutureConfig.Num) {
 					kv.DPrintf1("Action: Received and processing SHARD TRANSFER OP on ApplyCh. Operation => %+v, commitMsg => %+v, kv.committedConfig => %+v \n", thisCommand, commitMsg, kv.committedConfig)
 					
 
@@ -881,7 +886,7 @@ func (kv *ShardKV) processCommits() {
 					}
 					
 					// Delete gid from transition state. 
-					delete(kv.transitionState.groupsToReceiveFrom, int(thisCommand.ClientID))
+					delete(kv.transitionState.GroupsToReceiveFrom, int(thisCommand.ClientID))
 
 					kv.DPrintf2("Action: Executed SHARD TRANSFER OP on ApplyCh. kv.committedConfig => %+v, Operation => %+v, kv.transitionState => %+v \n", kv.committedConfig, thisCommand, kv.transitionState )
 
@@ -994,7 +999,6 @@ func (kv *ShardKV) processCommits() {
 			kv.DPrintf2("State after Receiving OP on applyCh. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n \n \n ",kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
 
 			kv.mu.Unlock()
-
 
 		case <-kv.shutdownChan:
 			return

@@ -26,7 +26,11 @@ func (kv *ShardKV) manageSnapshots(lastIncludedIndex int, lastIncludedTerm int) 
 	// If size of stored raft state in bytes>= maxraftstate, take snapshot.
 	currentRaftSize := kv.persister.RaftStateSize()
 	if (currentRaftSize >= kv.maxraftstate)  {
-		kv.DPrintf1("KVServer%d, Action: Create Snapsthot.  \n kv.transitionState => %+v, \n kv.committedConfig => %+v \n", kv.transitionState, kv.committedConfig,)
+		kv.DPrintf1("Action: Create Snapsthot.  \n kv.transitionState => %+v, \n kv.committedConfig => %+v \n", kv.transitionState, kv.committedConfig,)
+
+		if (kv.transitionState.FutureConfig.Num < kv.committedConfig.Num) {
+			kv.DError("CREATING SNAPSHOT: kv.transitionState => %+v, \n kv.committedConfig => %+v", kv.transitionState, kv.committedConfig)
+		}
 
 		// Marshal data into snapshot buffer
 		w := new(bytes.Buffer)
@@ -64,6 +68,13 @@ func (kv *ShardKV) readPersistSnapshot(data []byte) {
 	 d.Decode(&kv.committedConfig)
 	 d.Decode(&kv.transitionState)
 	 d.Decode(&kv.shardTransferStorage)
+
+	// Since received new shardTransferStorage, need to re-initialize activeTransferRPCs to 1) correct length, and 2) to false.
+	kv.activeTransferRPCs = make([]bool, len(kv.shardTransferStorage))
+
+	 if (kv.transitionState.FutureConfig.Num < kv.committedConfig.Num) {
+		kv.DError("RECIEVING SNAPSHOT: kv.transitionState => %+v, \n kv.committedConfig => %+v", kv.transitionState, kv.committedConfig)
+	}
 
 }
 
@@ -218,15 +229,15 @@ func (kv *ShardKV) getGroupsAndShardsToExchange() (groupsToReceiveFrom map[int]b
 	for k, currentShard_gid := range(kv.committedConfig.Shards) {
 
 		// Error Checking
-		if (kv.transitionState.futureConfig.Shards[k] == 0) {
+		if (kv.transitionState.FutureConfig.Shards[k] == 0) {
 			kv.DError("Moving towards an initialized shard with #0 as GID. Not taken account in implementation. ")
 		}
 
 		// Identify shards to be Transferred. 
 		if (currentShard_gid == kv.gid) && (currentShard_gid != 0) {
-			if (kv.transitionState.futureConfig.Shards[k] != kv.gid) {
+			if (kv.transitionState.FutureConfig.Shards[k] != kv.gid) {
 				// Map of Groups we need to send information to. 
-				futureShard_gid := kv.transitionState.futureConfig.Shards[k]
+				futureShard_gid := kv.transitionState.FutureConfig.Shards[k]
 				groupsToTransferTo[futureShard_gid] = true
 				// Index of specific shards that need to be transferred. 
 				shardsToTransfer = append(shardsToTransfer, k)
@@ -234,7 +245,7 @@ func (kv *ShardKV) getGroupsAndShardsToExchange() (groupsToReceiveFrom map[int]b
 		}
 
 		// Identify groups to receive from 
-		if (kv.gid == kv.transitionState.futureConfig.Shards[k]) && (currentShard_gid != 0) {
+		if (kv.gid == kv.transitionState.FutureConfig.Shards[k]) && (currentShard_gid != 0) {
 			if (currentShard_gid != kv.gid) {
 				groupsToReceiveFrom[currentShard_gid] = true
 			}
@@ -258,7 +269,7 @@ func (kv *ShardKV) getKeysToTransfer(shardsToTransfer []int) (map[int]map[string
 		for _, transferShard := range(shardsToTransfer) {
 			
 			if (shardOfKey == transferShard) {
-				gid_transferTo := kv.transitionState.futureConfig.Shards[transferShard]
+				gid_transferTo := kv.transitionState.FutureConfig.Shards[transferShard]
 
 				// Make sure map exists
 				if _, ok := transferMap[gid_transferTo]; ok {
@@ -299,7 +310,7 @@ func (kv *ShardKV) getCommitRowsToTransfer(shardsToTransfer []int) (map[int]map[
 		for _, transferShard := range(shardsToTransfer) {
 			
 			if (shardOfKey == transferShard)  {
-				gid_transferTo := kv.transitionState.futureConfig.Shards[transferShard]
+				gid_transferTo := kv.transitionState.FutureConfig.Shards[transferShard]
 
 				// Make sure map exists
 				if _, ok := transferCommitTable[gid_transferTo]; ok {
@@ -333,10 +344,10 @@ func (kv *ShardKV) findLeaderServer(si int, gid int) (selectedServer int) {
 
 func (kv *ShardKV) transitionCompleteCheck() {
 
-	if len(kv.transitionState.groupsToReceiveFrom) == 0 {
-		kv.transitionState.inTransition = false		
-		kv.DPrintf1("Action: CONFIGURATION TRANSITION COMPLETED (all shards received). Previous Configuration => %+v, New Configuration => %+v, Transition Stats => %+v \n", kv.committedConfig, kv.transitionState.futureConfig, kv.transitionState)		
-		kv.committedConfig = kv.transitionState.futureConfig
+	if len(kv.transitionState.GroupsToReceiveFrom) == 0 {
+		kv.transitionState.InTransition = false		
+		kv.DPrintf1("Action: CONFIGURATION TRANSITION COMPLETED (all shards received). Previous Configuration => %+v, New Configuration => %+v, Transition Stats => %+v \n", kv.committedConfig, kv.transitionState.FutureConfig, kv.transitionState)		
+		kv.committedConfig = kv.transitionState.FutureConfig
 	} 
 }
 
@@ -349,7 +360,7 @@ func (kv *ShardKV) checkIfTransferCommitted(gid_rpc int, configNum int) (committ
 	packageLocation = -1
 
 	for key, shardPackage := range(kv.shardTransferStorage) {
-		if (shardPackage.gidToSendTo == gid_rpc) && (shardPackage.futureConfig.Num == configNum) {
+		if (shardPackage.GidToSendTo == gid_rpc) && (shardPackage.FutureConfig.Num == configNum) {
 			committed = false
 			packageLocation = key
 			return committed, packageLocation

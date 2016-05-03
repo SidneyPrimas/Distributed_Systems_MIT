@@ -107,9 +107,12 @@ Configuration Changes Notes:
 To Do (Update Sending Shards):
 + Snapshot at end of configuration change and AddShard Operations. 
 + When sending an RPC, switching from sending to servers in order, and instead send to them randomly. 
-+ We don't need commit table for shardTransfer, transferSuccess, or configuration change. Remove it from shardTransfer. 
 + When rejecting logs during the configuration transition, I should respond to the client of those logs indicating that they should resend them. 
-+ Move manageSnapshots call to the end of the function. I currently don't have it at the end of the function to be thoguhtful about when not to take a snapshot. 
++ Move manageSnapshots call to the end of the function. I currently don't have it at the end of the function to be thoguhtful about when not to take a snapshot.
++ Remove the initialization of committedConfig. Not needed. 
++ Add error checking to activeTransferRPCs by including unique identifier in element (so we can iterate through each element to find the right one). 
++ Sanity check to make sure I am working within locks. 
++ Possible Saftey: Include the gid and num in the ActiveRPC array to make sure that I am removing the correct element. Essentially, I want to make sure that the element key, gid and num are the same in both arrays. NEXT STEP. Important sanity check. 
 
 
 Hints: 
