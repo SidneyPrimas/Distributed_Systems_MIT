@@ -36,6 +36,7 @@ type Op struct {
 type CommitStruct struct {
 	RequestID   int64
 	ReturnValue string
+	Key 		string
 }
 
 type RPCReturnInfo struct {
@@ -326,9 +327,8 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 
 // Receive keys from new shard. 
 func (kv *ShardKV) AddShardKeys(args *AddShardsArgs, reply *AddShardsReply) {
-
 	kv.mu.Lock()
-	kv.DPrintf1("Action: Receive AddShardKeys RPC REQUEST: kv.committedConfig => %+v, Args => %+v \n", kv.committedConfig, args)
+	kv.DPrintf1("Action: Receive AddShardKeys RPC REQUEST: kv.committedConfig => %+v, Args => %+v, kv.transitionState => %+v \n", kv.committedConfig, args, kv.transitionState )
 
 	thisOp := Op{
 	CommandType: 		ShardTransfer,
@@ -341,15 +341,28 @@ func (kv *ShardKV) AddShardKeys(args *AddShardsArgs, reply *AddShardsReply) {
 	// Default Value
 	reply.WrongLeader = true
 
+	// Return RPC with success: if the clients configuration is ahead. 
+	// This happens when the leader has already committed the configuration, but a follower sends an RPC as it's catching up. 
+	// Note: Even if Server is not leader, we can respond (since we know the leader must have committed this.)
+	if (kv.committedConfig.Num >= int(args.RequestID)) {
+		kv.DPrintf1("Action: REPEAT REQUEST. Committed Configuration ahead of received configuration. Respond to client.   \n")
+		// Note: At this point, it's unkown if this server is the leader.
+		// However, if the server has the right information for the client, send it.
+		reply.WrongLeader = false
+		kv.mu.Unlock()
+		return
+
+	}
+
 	// Determine if RequestID has already been committed, or is the next request to commit.
 	inCommitTable, _ := kv.checkCommitTable(thisOp)
 
 	// Return RPC with correct value: If the client is known, and this server already processed the RPC, send the return value to the client.
 	// Also return RPC with success: if the clients configuration is ahead. 
 	// Note: Even if Server is not leader, respond with the information client needs for this specific request.
-	if inCommitTable || kv.committedConfig.Num >= int(args.RequestID) {
+	if inCommitTable {
 
-		kv.DPrintf1("Action: REPEAT REQUEST. AddShardKeys ALREADY APPLIED. Respond to client.   \n")
+		kv.DPrintf1("Action: REPEAT REQUEST. AddShardKeys in Commt Table. Respond to client.   \n")
 		// Note: At this point, it's unkown if this server is the leader.
 		// However, if the server has the right information for the client, send it.
 		reply.WrongLeader = false
@@ -365,6 +378,7 @@ func (kv *ShardKV) AddShardKeys(args *AddShardsArgs, reply *AddShardsReply) {
 
 			// Unlock before Start (so Start can be in parallel)
 			kv.mu.Unlock()
+			kv.DPrintf1("Well, here goes.")
 			// Send Op Struct to Raft (using kv.rf.Start())
 			index, _, isLeader := kv.rf.Start(thisOp)
 			kv.mu.Lock()
@@ -411,7 +425,7 @@ func (kv *ShardKV) AddShardKeys(args *AddShardsArgs, reply *AddShardsReply) {
 			} 
 		// Reject if not in correct transition period. 
 		} else {
-			kv.DPrintf2("Action: Rejected AddShardKeys because KVServer%d not in correct transition Period.  \n", kv.me)
+			kv.DPrintf2("Action: Rejected AddShardKeys because KVServer%d not in correct transition Period. kv.committedConfig => %+v, kv.transitionState => %+v  \n", kv.me, kv.committedConfig, kv.transitionState)
 			reply.WrongLeader = true
 			kv.mu.Unlock()
 			return
@@ -436,14 +450,16 @@ func (kv *ShardKV) sendShardToGroup(gid int, args AddShardsArgs, futureConfig sh
 			for si := 0; si < len(servers); si++ {
 
 				selectedServer := kv.findLeaderServer(si, gid)
+				kv.DPrintf1("sendShardToGroup to server (%s) in gid%d", futureConfig.Groups[gid][selectedServer], gid)
 
-				srv := kv.make_end(futureConfig.Groups[gid][si])
+				srv := kv.make_end(futureConfig.Groups[gid][selectedServer])
 				
 				var reply AddShardsReply
 				ok := kv.sendRPC(srv, "ShardKV.AddShardKeys", &args, &reply)
 
-				// Wrong Leader (reset stored leader)
-				if (ok && reply.WrongLeader == true) {
+				// If Wrong Leader (reset stored leader)
+				// If no response, reset leader 
+				if !ok || (ok && reply.WrongLeader == true) {
 					kv.currentLeader[gid] = -1
 				}
 
@@ -456,10 +472,11 @@ func (kv *ShardKV) sendShardToGroup(gid int, args AddShardsArgs, futureConfig sh
 					return
 
 				}
+
 			}
 		}
 		// Wait to allow other groups/servers catch up. 
-		time.Sleep(30 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	// Error Checking
@@ -563,20 +580,20 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 	// Used to shutdown go routines when service is killed.
 	kv.shutdownChan = make(chan int)
 
-	// Load persisted snapshot (if it exists)
-	// For failure recover, raft reads directly from persister. 
-	rawSnapshotData := persister.ReadSnapshot()
-	if (len(rawSnapshotData) > 0) {
-		kv.readPersistSnapshot(rawSnapshotData)
-	}
-
 	// Initiates raft system (built as part of Lab2)
 	kv.rf = raft.Make(servers, me, persister, kv.applyCh)
 
 	// Use something like this to talk to the shardmaster:
 	kv.mck = shardmaster.MakeClerk(kv.masters)
 	// Get initial configuration Num. 
-	kv.committedConfig = kv.mck.Query(0)
+	kv.committedConfig = shardmaster.Config{}
+
+	// Load persisted snapshot (if it exists)
+	// For failure recover, raft reads directly from persister. 
+	rawSnapshotData := persister.ReadSnapshot()
+	if (len(rawSnapshotData) > 0) {
+		kv.readPersistSnapshot(rawSnapshotData)
+	}
 
 	kv.DPrintf1("%s \n Action: New KV Server and Raft Instance Created. \n", debug_break)
 
@@ -681,7 +698,7 @@ func (kv *ShardKV) processCommits() {
 
 			// HANDLE ALL OPs 
 			if thisCommand.CommandType == Configuration {
-				kv.DPrintf1("Received CONFIGURATION OP on ApplyCh. kv.committedConfig => %+v, Operation => %+v \n", kv.committedConfig, thisCommand)
+				kv.DPrintf1("Received CONFIGURATION OP on ApplyCh. Operation => %+v , commitMsg => %+v, kv.committedConfig => %+v \n", thisCommand, commitMsg, kv.committedConfig)
 				
 				// 1) Make sure this is the next configuration change that we expect.
 				// 2) Execute configuration change appropriately.  
@@ -693,6 +710,7 @@ func (kv *ShardKV) processCommits() {
 						kv.DError("Error: We want to initiate a new Transition Phase but still have shards that we need to Exchange.")
 					}
 
+					// Execute Configuration Operation
 					kv.transitionState.inTransition = true
 					kv.transitionState.futureConfig = thisCommand.Config
 
@@ -704,6 +722,7 @@ func (kv *ShardKV) processCommits() {
 					// For each gid we transfer to, a key/value map is created. 
 					// transferMap is indexed by gid of group we need to send it to. 
 					transferMap := kv.getKeysToTransfer(shardsToTransfer)
+					transferCommitTable := kv.getCommitRowsToTransfer(shardsToTransfer)
 
 							
 					// Send out each of the maps to the appripriate GIDs. 
@@ -712,12 +731,14 @@ func (kv *ShardKV) processCommits() {
 						
 						args := AddShardsArgs{}
 						args.ShardKeys = transferMap[gid]
-						args.LastCommitTable = kv.lastCommitTable
+						args.LastCommitTable = transferCommitTable[gid]
 						args.ClientID 	= int64(kv.gid)
 						// Create random requestID to ensure we return to the correct
 						args.RequestID = int64(kv.transitionState.futureConfig.Num)
 						
-						kv.sendShardToGroup(gid, args, kv.transitionState.futureConfig)
+						// We don't need to hold the lock while sending out Shards. 
+						// This allows us to process incoming shards in case of concurrent exchange of shards. 
+						go kv.sendShardToGroup(gid, args, kv.transitionState.futureConfig)
 
 						delete(kv.transitionState.groupsToTransferTo, gid)
 
@@ -733,11 +754,15 @@ func (kv *ShardKV) processCommits() {
 					kv.transitionCompleteCheck()
 
 
-				} else if (kv.committedConfig.Num == thisCommand.Config.Num) {
+				// Note on old configurations: We can receive old configurations through the raft log when the server dies, and needs
+				// to reply the raft log. IN this case, the checkConfiguration function still fires, attempting to get the next configuration
+				// Since the system doesn't know that we are just replaying the pre-recorded logs, we add this very delayed configuration change into raft. 
+				// This will be received by the applyCh, and rejected here. 
+				} else if (kv.committedConfig.Num >= thisCommand.Config.Num) {
 					kv.DPrintf2("Received REPEAT configuration change. Reject it. \n")
 
 				} else {
-					kv.DError("Received a configuration change that's very old or very new through Raft. Should not be possible. \n")
+					kv.DError("Received a configuration change that's more than one index newer than the committedConfig. Should not be possible. \n")
 				}
 
 
@@ -758,10 +783,13 @@ func (kv *ShardKV) processCommits() {
 							kv.kvMap[key] = value
 						}
 
-						// Todo: Transfer full commit table
-						kv.lastCommitTable = thisCommand.LastCommitTable
+						// Update each relevant row of the Commit Table
+						for clientID_shard, row := range (thisCommand.LastCommitTable) {
+							kv.lastCommitTable[clientID_shard] = row
+						}
+						
 
-						//Update CommitTable
+						//Update CommitTable with ShardTransfer Results
 						kv.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID}
 
 
@@ -814,7 +842,7 @@ func (kv *ShardKV) processCommits() {
 					}
 
 					// Update commitTable
-					kv.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID, ReturnValue: returnValue}
+					kv.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID, ReturnValue: returnValue, Key: thisCommand.Key}
 
 				}
 
@@ -843,7 +871,7 @@ func (kv *ShardKV) processCommits() {
 					kv.kvMap[thisCommand.Key] = thisCommand.Value
 
 					// Update commitTable. No returnValue since a put/append request
-					kv.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID}
+					kv.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID, Key: thisCommand.Key}
 				}
 
 				//Return RPC to Client with correct value.
@@ -871,7 +899,7 @@ func (kv *ShardKV) processCommits() {
 					kv.kvMap[thisCommand.Key] = kv.kvMap[thisCommand.Key] + thisCommand.Value
 
 					// Update commitTable. No returnValue since a put/append request
-					kv.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID}
+					kv.lastCommitTable[thisCommand.ClientID] = CommitStruct{RequestID: thisCommand.RequestID, Key: thisCommand.Key}
 				}
 
 				//Return RPC to Client with correct value.

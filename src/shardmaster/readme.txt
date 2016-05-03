@@ -1,35 +1,37 @@
 High Level To Do: 
-+ + Implement better logging: https://github.com/Sirupsen/logrus
-
-Issues in TestStaticShards: 
-+ We receive a shard (that is the correct shard) with a much more advanced commit table (meaning has high level RPCs in it). What is probably happening is that the RPCs for some of the keys are far ahead (not sure how). And, we are sending keys from the commit table that we shouldn't send. So, we need to fix sending on ly the appropriate keys on the commit Table. 
-+ 
++ + Implement better logging: https://github.com/Sirupsen/logrus 
 
 Holistic To Do: 
 + When skipping entries since we are in a configuration transition, make sure to 1) respond to RPC indicating client to try again and 2) clean out the RPC table at that index. Ideally, the client knows that they have the correct leader and responds back to same server 
-+Figure out how to initialize configuration on startup. Getting the latest configuration is *not* the right approach because the configuration needs to match the current state of the system. 
 + Figure out when to delete keys from maps. A thought: I can only delete it when it has bee successfully accepted by all groups that need it
 + To improve readability, break the following parts into seperate functions: handling configuration change OP. 
 + Figure out what to do when: Server's configuration is significantly behind. And, another server is attempting to send shards over. Should I put these shards into raft, or should I just reject the RPC. Then, should the server find another server within the group, and continue trying until the other server catches up. 
-+ Important: Handle the possible deadlock when servers need to 1) receive a shard from a server and 2) send a shard to another server. 
 + Error Checking: Check if I ever add a key to a a shard the group doesn't own. Check when a new map comes in from raft log. 
 + Investigate go routines: Should I have goRoutines when I query the shardmaster? 
 + Do not enter Query configuration changes into raft. Essentially, these have no effect on any of the servers. They are ignored in every way accept to increase the commit Num. So, when receiving this as a new configuration, just reject it. In this case, don't even change the configuration Num (since in order to change a committed configuration we need to go through Raft). Instead, allow raft to accept configuration changes with a Num greater than the current configuration Num. 
 + Snapshotting during transition: Currently, we don't take any snapshots during the transition. The reason for this is that the snapshot assumes that the operation in question has been completed, and we no longer need to log for that operation. However, in the transition, that's not the case. Thus, if we decide we need to snapshot the transition, we also need to snapshot 1) the committedConfig and 2) the transitionState. The transitionState is especially important because it captures the changes to the state of the system during the transition. 
 + Think about: 1) Should I overwrite keys (without thinking) when I transfer shards and 2) should I delete keys after transferring shards. Also, how do I best error check this? 
 
+Quick Notes: 
+
 
 High Priority To Do: 
++ Important: Handle the possible deadlock when servers need to 1) receive a shard from a server and 2) send a shard to another server. 
 + Possible Implementation: Convert to a scheme where each shard has it's own key/value map and it's own commitTable. Thus, I can transfer around full shards. 
-+ Possible Implementation: Identify entries of the commit table that are relevant to a specific shard. Only send these entries when transferring shards. 
-+ During snapshotting, make sure that we capture the committedConfig state. Then, make sure we load the correct committedConfig state during startup. 
-+ Solve the following: Currently, we add very old configuration changes to the top of the log. The reason for this is that when we are replaying a log, we still query mastershard with checkConfiguration. And, we add this to the top of the log. Make sure this case is handled correctly. 
++ Need to think about: I need to figure out if I should delete key/values from mape and rows from commitTable for transferred shards. 
++ Shard exchange: With rf.GetState(), I can make sure that only the leader sends shards to other groups. Positive:  The benefit is a situation where the follower somehow finds the other group's leader first. Then, the follower completes the transaction, and moves ahead of the leader.  Negative: The drawback is if the leader cannot contact the other shard, and the follower doesn't need to contact the other shard. Then, the follower can be ahead of the execution state of the leader, and process more logs. This might cause issues. A possible solution is to put the fact that the other group responded into Raft. Then, wait for the confirmation on Raft (put in by leader), before moving on. 
++ Currently, I am not snapshotting during configuration changes. Make sure this doesn't cause any issues.
+++ Implementing snapshotting during configuration change: The configuration change is an operation that indicates that we go into a transition state. Store this transition state in a variable, and make sure to snapshot this variable. When the server comes back on, check if we are in transition state. If we are in transition state, call a worker to complete the transition state by send out RPCS. 
 
 Completed To Dos: 
++ Completed: During snapshotting, make sure that we capture the committedConfig state. Then, make sure we load the correct committedConfig state during startup. 
 + Completed: When I am in transition mode, reject all incoming RPCs from entering the log. 
 + Completed: Before executing a command (put, get, append), make sure that it belongs in this group in the current configuration. 
 + Completed: Before entering a command into the log, make sure that it belongs in this group within the current configuration. 
 + Completed: Figure out if it's necessary to snapshot during configuration changes. Currently, I don't snapshot when rejecting logs during a transition. The solution to this is move the snapshot call into the locations where we handle each Op. 
++ Completed: Identify entries of the commit table that are relevant to a specific shard. Only send these entries when transferring shards
++ Completed: Currently, we add very old configuration changes to the top of the log. The reason for this is that when we are replaying a log, we still query mastershard with checkConfiguration. And, we add this to the top of the log. Make sure this case is handled correctly
++ Completed: Figure out how to initialize configuration on startup. Getting the latest configuration is *not* the right approach because the configuration needs to match the current state of the system. 
 
 Possible Issue: 
 + Does ShardMaster ever crash? If so, do we need to persist data on shardmaster. 
@@ -39,6 +41,7 @@ Possible Issue:
 
 Possible Optimizations: 
 + When a server that is in transition state receives a request, tell the client to take a break (timeout) before sending another request. This will make sure the client doesn't send endless requests when the server is in an extended transtion. The drawbak is if a single server is stuck in transition, but the rest of the gorup is making progress, then we would waste time. 
++ Use rf.GetState() in order to check if server is leader. This is valuable if 1) you only want the leader to print output and 2) you check if your leader before using Query. 
 
 Questions: 
 + Should a group of servers have the same clientID for the purpose of other systems identifying them? I am assuming yes since a group of replicated servers should really function as a single server to the outside world. 
@@ -67,6 +70,7 @@ Configuration Update Notes:
 + Ensuring configuration changes are in order: 
 ++ Don't need an RPC table since I never need to re-apply to an asynch RPC. The system knows it's successful when the configuration increases. 
 ++ Don't need to add this to the commitTable. The reason for this is that the committedConfig functions as the commit table. We always know what the last committed config was, so we know if the current config is a duplicate, or the next config. Essentially, the committedConfig functions as it's own row in a commit table. 
++ Transferring Commit Tables: When transferring commit tables, I only transfer the keys that need to be exchanged. The reason for this is that the goal is to move around shards, and only keys belong to shards (not configuraation and shard changes). 
 
 Configuration Update Implementation:
 + When receive configuration change on applyCh, change to configuration change state. 
@@ -76,6 +80,26 @@ Configuration Update Implementation:
 + To send shards, send the shard to the appropriate group. Make sure that the server in the group is 1) in the appropriate transition state, and 2) leader. If they are both, the server will eventually receive the keys on the applyCh. When it does, it should update it's state. 
 + To receive shards, the system needs to keep track of all the shards it should receive. When it receives a shard, on the applyCh, it should add this to the map, and then it should remove the shard from the list of shards it should receive. 
 + Once a group has both successfully sent, and successfully received all the shards it needs, then the group can move out of transition state, and continue processing new requests. 
+
+Sending Shards Brainstorm: 
++ To send shards: A configuration change indicates that we are changing into a transition state (not thave we have successfully changed into a new configuration). Currently, we are not snapshotting at this log, and thus don't have to persist the transition state in the snapshot. Once we have executed this operation, we should have a worker that uses the transitionState to send out RPCs. This is not part of the execution, but needs to happen before the transition state is complete. Then, the applyCh loop continues receiving RPCs, but rejects all RPCs until we get the shard log. 
+++ The problem: What if we receive all shards, but haven't finished sending the shards. Then, we still will be in transition state, and we will reject any and all logs until we have successfully sent the RPC. This is an issue because 1) different servers in a group will be in different states and 2) when we re-play we won't replay deterministically. 
+++ The solution: We transition out of the state as soon as we have all the shards. The problem here is what if we get a new configuration change that indicates that we receive the shard that we sent away. And, we get the shard back. Then, this transition state will be overwritten. 
+++ The other issues is that we are still snapshotting. So, when we restart, we have to make sure that we stored the transition state and we have to make sure that we re-run the transition worker. 
+++ Possible solution: We might have to creat a transition state that includes a different transition state for each shard that we need to send to. 
+
+
+Updated Approach to Sending Shards: 
++ Upon receiving configuration change, change into transition state. To chage into transition state: 1) store the shards that need to be received, 2) indicate that in transition state, and 3) add the shards that need to be sent to an array. 
++ Remain in transition state until all shards received. When in transition state, reject all logs until receive all the shards. To move out of transition state, check if all the shars have been received. 
++ Add all the shards to be sent to an array. Each element in the array needs to include: 1) key/value of all the shards we need to send to a group, 2) the group we need to send to, and 3) any relevent configuration information. 
++ Create a worker loop that runs in the background. This should be created upon startup. The worker loop does the following: 
+++ Check if the server is the leader. 
+++ Create a go routine for each item on the transfer list. We only need to create each go routine once. The solution to accomplish this is create a seperate array of the same lengths as ShardsToTransfer. This arrays keeps track if this server has spawned a go routine for the specific entry in the array. Upon re-start, this will be initialized to 0, and so we will spawn all of these RPCs as we should. 
+++ The go routine essentially is RPC handler that continually attempts to send the shards to the pre-defined group. We do not leave this accept with a success. 
+++ If the go routine receives a success, then put the response into Raft. Raft will make sure that the server is leader. 
+++ Once we receive this log from raft, 1) remove the entry from ShardsToTransfer, 2) remove the indicator of if the RPC has been sent, 3) and make sure to persist.
++ Note: Once we spawn an RPC they will always be running. So, even when the server is no longer leader, we will still try to send shards. This is not a problem since the other group can receive the shards from anybody. Only the leader will put the response into Raft. 
 
 
 Hints: 

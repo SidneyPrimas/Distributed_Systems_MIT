@@ -158,6 +158,7 @@ func TestSnapshot(t *testing.T) {
 
 	ck := cfg.makeClient()
 
+	fmt.Printf("Group 0 Joins \n")
 	cfg.join(0)
 
 	n := 30
@@ -172,8 +173,10 @@ func TestSnapshot(t *testing.T) {
 		check(t, ck, ka[i], va[i])
 	}
 
+	fmt.Printf("Group 1 and 2 Joins \n")
 	cfg.join(1)
 	cfg.join(2)
+	fmt.Printf("Group 0 Leaves \n")
 	cfg.leave(0)
 
 	for i := 0; i < n; i++ {
@@ -182,7 +185,7 @@ func TestSnapshot(t *testing.T) {
 		ck.Append(ka[i], x)
 		va[i] += x
 	}
-
+	fmt.Printf("Group 1 leaves and Group 0 joins \n")
 	cfg.leave(1)
 	cfg.join(0)
 
@@ -203,10 +206,12 @@ func TestSnapshot(t *testing.T) {
 
 	cfg.checklogs()
 
+	fmt.Printf("All Groups shutdown \n")
 	cfg.ShutdownGroup(0)
 	cfg.ShutdownGroup(1)
 	cfg.ShutdownGroup(2)
 
+	fmt.Printf("All groups re-start. Check if snapshot successful. \n")
 	cfg.StartGroup(0)
 	cfg.StartGroup(1)
 	cfg.StartGroup(2)
@@ -226,6 +231,7 @@ func TestMissChange(t *testing.T) {
 
 	ck := cfg.makeClient()
 
+	fmt.Printf("Group 0 Joined \n")
 	cfg.join(0)
 
 	n := 10
@@ -240,12 +246,15 @@ func TestMissChange(t *testing.T) {
 		check(t, ck, ka[i], va[i])
 	}
 
+	fmt.Printf("Group 1 Joined \n")
 	cfg.join(1)
 
+	fmt.Printf("Shutdown server 0 in group. \n")
 	cfg.ShutdownServer(0, 0)
 	cfg.ShutdownServer(1, 0)
 	cfg.ShutdownServer(2, 0)
 
+	fmt.Printf("Group 2 Join. Group 1 and 0 Leave.  \n")
 	cfg.join(2)
 	cfg.leave(1)
 	cfg.leave(0)
@@ -257,6 +266,7 @@ func TestMissChange(t *testing.T) {
 		va[i] += x
 	}
 
+	fmt.Printf("Group 1 Joins Again \n")
 	cfg.join(1)
 
 	for i := 0; i < n; i++ {
@@ -266,6 +276,7 @@ func TestMissChange(t *testing.T) {
 		va[i] += x
 	}
 
+	fmt.Printf("Servers 0 within all groups restart. \n")
 	cfg.StartServer(0, 0)
 	cfg.StartServer(1, 0)
 	cfg.StartServer(2, 0)
@@ -279,10 +290,12 @@ func TestMissChange(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
-	cfg.ShutdownServer(0, 1)
+	fmt.Printf("Servers 1 Shutdown Again\n")
+	cfg.ShutdownServer(0, 1)	
 	cfg.ShutdownServer(1, 1)
 	cfg.ShutdownServer(2, 1)
 
+	fmt.Printf("Group 0 Join. Group 2 Leave.\n")
 	cfg.join(0)
 	cfg.leave(2)
 
@@ -293,6 +306,7 @@ func TestMissChange(t *testing.T) {
 		va[i] += x
 	}
 
+	fmt.Printf("Server 1 groups Start \n")
 	cfg.StartServer(0, 1)
 	cfg.StartServer(1, 1)
 	cfg.StartServer(2, 1)

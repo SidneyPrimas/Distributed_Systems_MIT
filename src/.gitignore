@@ -1,4 +1,4 @@
-*.*/
+/shardmaster/Test/*.*/
 mrtmp.*
 824-mrinput-*.txt
 /main/diff.out
@@ -9,3 +9,7 @@ mrtmp.*
 /raft/Test/*
 /raft/Custom_Test/*
 /kvraft/Custom_test/*
+/shardkv/Test/*
+/shardkv/Custom_Test/*
+/shardmaster/Test/*
+/shardmaster/Custom_Test/*

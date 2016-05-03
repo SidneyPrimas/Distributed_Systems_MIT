@@ -35,7 +35,13 @@ func (kv *ShardKV) manageSnapshots(lastIncludedIndex int, lastIncludedTerm int) 
 	 	e.Encode(lastIncludedTerm)
 	 	e.Encode(kv.kvMap)
 	 	e.Encode(kv.lastCommitTable)
+	 	e.Encode(kv.committedConfig)
 	 	data_snapshot := w.Bytes()
+
+	 	// In current implementation, never snapshot during the transition state. 
+	 	if (len(kv.transitionState.groupsToTransferTo) != 0) || (len(kv.transitionState.groupsToReceiveFrom) != 0 )  || (kv.transitionState.inTransition) {
+			kv.DError("Error: We are snapshotting within a transition state.")
+		}
 
 	 	// Send data to raft to 1) persist data and 2) truncate log. 
 	 	// Note: Go routine does not keep the lock. 
@@ -51,13 +57,14 @@ func (kv *ShardKV) readPersistSnapshot(data []byte) {
 	 r := bytes.NewBuffer(data)
 	 d := gob.NewDecoder(r)
 
-	 // DiscardlastIncludedIndex and lastIncludedTerm
+	 // Discard lastIncludedIndex and lastIncludedTerm
 	 var lastIncludedIndex int
 	 var lastIncludedTerm int
 	 d.Decode(&lastIncludedIndex)
 	 d.Decode(&lastIncludedTerm)
 	 d.Decode(&kv.kvMap)
 	 d.Decode(&kv.lastCommitTable)
+	 d.Decode(&kv.committedConfig)
 
 }
 
@@ -86,7 +93,7 @@ func (kv *ShardKV) checkCommitTable(thisCommand Op) (inCommitTable bool, returnV
 		// Catch Errors: Received an old RequestID (behind the one already committed)
 	} else if ok && (prevCommitted.RequestID > thisCommand.RequestID) {
 		kv.DPrintf1("Error at KVServer%d: prevCommitted: %+v and thisCommand: %+v \n", kv.me, prevCommitted, thisCommand)
-		kv.DError("Error checkCommitTable_beforeRaft: Based on CommitTable, new RequestID is too old. This can happen if RPC very delayed (since client RPC timeout has been changed). \n")
+		kv.DError("Error checkCommitTable: Based on CommitTable, new RequestID is too old. This can happen if RPC very delayed (since client RPC timeout has been changed). \n")
 		// If this happens, just reply to the RPC with wrongLeader (or do nothing). The client won't even be listening for this RPC anymore
 
 	// Process the next valid RPC Request with Start(): If 1) client isn't known or 2) the request is larger than the currently committed request.
@@ -269,6 +276,47 @@ func (kv *ShardKV) getKeysToTransfer(shardsToTransfer []int) (map[int]map[string
 	}
 
 	return transferMap
+}
+
+func (kv *ShardKV) getCommitRowsToTransfer(shardsToTransfer []int) (map[int]map[int64]CommitStruct) {
+
+	transferCommitTable := make(map[int]map[int64]CommitStruct)
+
+	// Identify keys that needs to be transferred to new GID. 
+	// Loop through all rows on commit table. 
+	// Remember: Skip rows with keys that have null val
+	for clientID, commitRow := range(kv.lastCommitTable) {
+
+		// If the Key is the null value, we do not send the row. 
+		// Skip this row. 
+		if (commitRow.Key == "") {
+			continue
+		}
+
+		// Identify shard that owns key. 
+		shardOfKey := key2shard(commitRow.Key)
+
+		// If the shard needs to be moved and the key isnt a null "", store the correspond row to be transferred. 
+		for _, transferShard := range(shardsToTransfer) {
+			
+			if (shardOfKey == transferShard)  {
+				gid_transferTo := kv.transitionState.futureConfig.Shards[transferShard]
+
+				// Make sure map exists
+				if _, ok := transferCommitTable[gid_transferTo]; ok {
+					transferCommitTable[gid_transferTo][clientID] = commitRow
+				// If the map doesn't exists
+				} else {
+					transferCommitTable[gid_transferTo] = make(map[int64]CommitStruct)
+					transferCommitTable[gid_transferTo][clientID] = commitRow
+				}
+
+			}
+
+		}
+	}
+
+	return transferCommitTable
 }
 
 

@@ -99,7 +99,7 @@ func (ck *Clerk) Get(key string) string {
 				ok := ck.sendRPC(srv, "ShardKV.Get", &args, &reply)
 
 				// Wrong Leader (reset stored leader)
-				if (ok && reply.WrongLeader == true) {
+				if !ok || (ok && reply.WrongLeader == true) {
 					ck.currentLeader[gid] = -1
 				}
 
@@ -160,7 +160,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 				ok := ck.sendRPC(srv, "ShardKV.PutAppend", &args, &reply)
 
 				// Wrong Leader (reset stored leader)
-				if (ok && reply.WrongLeader == true) {
+				if !ok || (ok && reply.WrongLeader == true) {
 					ck.currentLeader[gid] = -1
 				}
 
