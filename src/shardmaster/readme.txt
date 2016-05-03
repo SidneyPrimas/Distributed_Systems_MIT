@@ -91,7 +91,7 @@ Sending Shards Brainstorm:
 
 Updated Approach to Sending Shards: 
 + Upon receiving configuration change, change into transition state. To chage into transition state: 1) store the shards that need to be received, 2) indicate that in transition state, and 3) add the shards that need to be sent to an array. 
-+ Remain in transition state until all shards received. When in transition state, reject all logs until receive all the shards. To move out of transition state, check if all the shars have been received. 
++ Remain in transition state until all shards received. When in transition state, reject all logs until receive all the shards. To move out of transition state, check if all the shards have been received. 
 + Add all the shards to be sent to an array. Each element in the array needs to include: 1) key/value of all the shards we need to send to a group, 2) the group we need to send to, and 3) any relevent configuration information. 
 + Create a worker loop that runs in the background. This should be created upon startup. The worker loop does the following: 
 ++ Check if the server is the leader. 
@@ -100,6 +100,16 @@ Updated Approach to Sending Shards:
 ++ If the go routine receives a success, then put the response into Raft. Raft will make sure that the server is leader. 
 ++ Once we receive this log from raft, 1) remove the entry from ShardsToTransfer, 2) remove the indicator of if the RPC has been sent, 3) and make sure to persist.
 + Note: Once we spawn an RPC they will always be running. So, even when the server is no longer leader, we will still try to send shards. This is not a problem since the other group can receive the shards from anybody. Only the leader will put the response into Raft. 
+
+Configuration Changes Notes: 
++ 
+
+To Do (Update Sending Shards):
++ Snapshot at end of configuration change and AddShard Operations. 
++ When sending an RPC, switching from sending to servers in order, and instead send to them randomly. 
++ We don't need commit table for shardTransfer, transferSuccess, or configuration change. Remove it from shardTransfer. 
++ When rejecting logs during the configuration transition, I should respond to the client of those logs indicating that they should resend them. 
++ Move manageSnapshots call to the end of the function. I currently don't have it at the end of the function to be thoguhtful about when not to take a snapshot. 
 
 
 Hints: 
