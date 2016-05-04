@@ -28,8 +28,9 @@ func (kv *ShardKV) manageSnapshots(lastIncludedIndex int, lastIncludedTerm int) 
 	if (currentRaftSize >= kv.maxraftstate)  {
 		kv.DPrintf1("Action: Create Snapsthot.  \n kv.transitionState => %+v, \n kv.committedConfig => %+v \n", kv.transitionState, kv.committedConfig,)
 
+		// Error checking: Ensure that kv.transitionState and committedConfig Configurations have the expected Num. 
 		if (kv.transitionState.FutureConfig.Num < kv.committedConfig.Num) {
-			kv.DError("CREATING SNAPSHOT: kv.transitionState => %+v, \n kv.committedConfig => %+v", kv.transitionState, kv.committedConfig)
+			kv.DError("Mismatching Num in transitionSate and committedConfig. kv.transitionState => %+v, \n kv.committedConfig => %+v", kv.transitionState, kv.committedConfig)
 		}
 
 		// Marshal data into snapshot buffer
@@ -69,11 +70,22 @@ func (kv *ShardKV) readPersistSnapshot(data []byte) {
 	 d.Decode(&kv.transitionState)
 	 d.Decode(&kv.shardTransferStorage)
 
-	// Since received new shardTransferStorage, need to re-initialize activeTransferRPCs to 1) correct length, and 2) to false.
-	kv.activeTransferRPCs = make([]bool, len(kv.shardTransferStorage))
+	// Since received new shardTransferStorage, need to re-initialize activeTransferRPCs to 1) correct length, and 2) values.
+	kv.activeTransferRPCs = make([]TransferRPCs, len(kv.shardTransferStorage))
+	for key, shardPackage := range(kv.shardTransferStorage) {
 
-	 if (kv.transitionState.FutureConfig.Num < kv.committedConfig.Num) {
-		kv.DError("RECIEVING SNAPSHOT: kv.transitionState => %+v, \n kv.committedConfig => %+v", kv.transitionState, kv.committedConfig)
+		newTransferRPCs := TransferRPCs{}
+		newTransferRPCs.active = false
+		newTransferRPCs.gid_sendTo = shardPackage.GidToSendTo
+		newTransferRPCs.futureNum = shardPackage.FutureConfig.Num
+
+		kv.activeTransferRPCs[key] = newTransferRPCs
+
+	}
+
+	// Error checking: Ensure that kv.transitionState and committedConfig Configurations have the expected Num. 
+	if (kv.transitionState.FutureConfig.Num < kv.committedConfig.Num) {
+		kv.DError("Mismatching Num in transitionSate and committedConfig.  kv.transitionState => %+v, \n kv.committedConfig => %+v", kv.transitionState, kv.committedConfig)
 	}
 
 }
@@ -361,6 +373,12 @@ func (kv *ShardKV) checkIfTransferCommitted(gid_rpc int, configNum int) (committ
 
 	for key, shardPackage := range(kv.shardTransferStorage) {
 		if (shardPackage.GidToSendTo == gid_rpc) && (shardPackage.FutureConfig.Num == configNum) {
+
+			// Error Checking: Ensure that activeTransferRPC has same entry as shardTransferStorage. 
+			if (kv.activeTransferRPCs[key].gid_sendTo != shardPackage.GidToSendTo) || (kv.activeTransferRPCs[key].futureNum != shardPackage.FutureConfig.Num)  {
+				kv.DError("Transfer arrays have mis-aligned entries: activeTransferRPC and shardTransferStorage. ")
+			}
+
 			committed = false
 			packageLocation = key
 			return committed, packageLocation

@@ -6,8 +6,8 @@ import "time"
 import "fmt"
 import "sync/atomic"
 import "math/rand"
-//import "os"
-//import "os/signal"
+import "os"
+import "os/signal"
 
 func check(t *testing.T, ck *Clerk, key string, value string) {
 	v := ck.Get(key)
@@ -513,6 +513,14 @@ func TestUnreliable1(t *testing.T) {
 }
 
 func TestUnreliable2(t *testing.T) {
+
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt)
+	go func() {
+	    <-signalChan
+	    panic("ctrl c")
+	}()
+
 	fmt.Printf("Test: unreliable 2...\n")
 
 	cfg := make_config(t, 3, true, 100)
@@ -520,6 +528,7 @@ func TestUnreliable2(t *testing.T) {
 
 	ck := cfg.makeClient()
 
+	fmt.Printf("1) Join 0\n")
 	cfg.join(0)
 
 	n := 10
@@ -549,20 +558,26 @@ func TestUnreliable2(t *testing.T) {
 	}
 
 	time.Sleep(150 * time.Millisecond)
+	fmt.Printf("2) Join 1. 0 and 1 active\n")
 	cfg.join(1)
 	time.Sleep(500 * time.Millisecond)
+	fmt.Printf("3) Join 2. 0, 1 and 2 active\n")
 	cfg.join(2)
 	time.Sleep(500 * time.Millisecond)
+	fmt.Printf("4) Leave 0. 1 and 2 active\n")
 	cfg.leave(0)
 	time.Sleep(500 * time.Millisecond)
+	fmt.Printf("5) Leave 1. 2 active\n")
 	cfg.leave(1)
 	time.Sleep(500 * time.Millisecond)
+	fmt.Printf("6) Join 1 and 0. 0, 1 and 2 active\n")
 	cfg.join(1)
 	cfg.join(0)
 
 	time.Sleep(2 * time.Second)
 
 	atomic.StoreInt32(&done, 1)
+	fmt.Printf("Checking of data.\n")
 	cfg.net.Reliable(true)
 	for i := 0; i < n; i++ {
 		<-ch

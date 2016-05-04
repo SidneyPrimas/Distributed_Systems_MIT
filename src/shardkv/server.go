@@ -67,6 +67,11 @@ type ShardPackage struct {
 	FutureConfig  			shardmaster.Config
 }
 
+type TransferRPCs struct {
+	active 			bool
+	gid_sendTo 		int
+	futureNum		int
+}
 
 type ShardKV struct {
 	mu           sync.Mutex
@@ -91,7 +96,7 @@ type ShardKV struct {
 	transitionState			TransitionState
 	shardTransferStorage 	[]ShardPackage
 	// Track which RPCs to transfer shards are active. 
-	activeTransferRPCs		[]bool
+	activeTransferRPCs		[]TransferRPCs
 }
 
 
@@ -489,9 +494,11 @@ func (kv *ShardKV) sendShardsToGroup(gid int, args AddShardsArgs, futureConfig s
 					// If it's already committed, just return out of the sending Shard function. 
 					if !committed {
 
+
 						// Indicate in activeTransferRPCs array that we returned from this RPC
 						// Note: Only indicate 1) if not committed and 2) while still holding lock from above query. 
-						kv.activeTransferRPCs[packageLocation] = false
+						kv.activeTransferRPCs[packageLocation].active = false
+
 
 						thisOp := Op{}
 						thisOp.CommandType = TransferSuccess
@@ -619,6 +626,7 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 
 	// Records shards that need to be sent. 
 	kv.shardTransferStorage = make([]ShardPackage, 0)
+	kv.activeTransferRPCs = make([]TransferRPCs, 0)
 
 	// Creates Queue to keep tract of outstand Client RPCs (while waiting for Raft)
 	kv.waitingForRaft_queue = make(map[int]RPCResp)
@@ -678,7 +686,12 @@ func (kv *ShardKV) sendShardPackages() {
 			for k, shardPackage := range(kv.shardTransferStorage) {
 				
 				// Only create RPC Transfer Routine if one hasn't been created. 
-				if (!kv.activeTransferRPCs[k]) {
+				if (!kv.activeTransferRPCs[k].active) {
+
+					// Error Checking: Ensure that activeTransferRPC has same entry values as shardTransferStorage. 
+					if (kv.activeTransferRPCs[k].gid_sendTo != shardPackage.GidToSendTo) || (kv.activeTransferRPCs[k].futureNum != shardPackage.FutureConfig.Num)  {
+						kv.DError("Transfer arrays have mis-aligned entries: activeTransferRPC and shardTransferStorage. ")
+					}
 
 					args := AddShardsArgs{}
 					args.ShardKeys = shardPackage.TransferKeys
@@ -843,8 +856,14 @@ func (kv *ShardKV) processCommits() {
 						newShardPackage.TransferCommitTable = transferCommitTable[gid]
 						newShardPackage.FutureConfig = kv.transitionState.FutureConfig
 
+						newTransferRPCs := TransferRPCs{}
+						newTransferRPCs.active = false
+						newTransferRPCs.gid_sendTo = gid
+						newTransferRPCs.futureNum = kv.transitionState.FutureConfig.Num
+
+
 						kv.shardTransferStorage = append(kv.shardTransferStorage, newShardPackage)
-						kv.activeTransferRPCs = append(kv.activeTransferRPCs, false)
+						kv.activeTransferRPCs = append(kv.activeTransferRPCs, newTransferRPCs)
 
 					}
 						
