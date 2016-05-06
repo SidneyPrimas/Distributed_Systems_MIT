@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"labrpc"
 	"time"
+	"shardmaster"
 )
 
 const debug_break = "---------------------------------------------------------------------------------------"
@@ -26,11 +27,16 @@ func (kv *ShardKV) manageSnapshots(lastIncludedIndex int, lastIncludedTerm int) 
 	// If size of stored raft state in bytes>= maxraftstate, take snapshot.
 	currentRaftSize := kv.persister.RaftStateSize()
 	if (currentRaftSize >= kv.maxraftstate)  {
-		kv.DPrintf1("Action: Create Snapsthot.  \n kv.transitionState => %+v, \n kv.committedConfig => %+v \n", kv.transitionState, kv.committedConfig,)
+		kv.DPrintf1("Action: Create Snapsthot.  \n kv.transitionState => %+v, \n kv.committedConfig => %+v \n kv.shardTransferStorage => %+v \n kv.activeTransferRPCs => %+v \n", kv.transitionState, kv.committedConfig, kv.shardTransferStorage, kv.activeTransferRPCs)
 
 		// Error checking: Ensure that kv.transitionState and committedConfig Configurations have the expected Num. 
 		if (kv.transitionState.FutureConfig.Num < kv.committedConfig.Num) {
 			kv.DError("Mismatching Num in transitionSate and committedConfig. kv.transitionState => %+v, \n kv.committedConfig => %+v", kv.transitionState, kv.committedConfig)
+		}
+
+		// Error Checking
+		if (kv.transitionState.FutureConfig.Num == kv.committedConfig.Num && kv.transitionState.InTransition) {
+			kv.DError("Action (wrie): In transition between configurations while committedConfig is already updated to the new one. ")
 		}
 
 		// Marshal data into snapshot buffer
@@ -59,6 +65,9 @@ func (kv *ShardKV) readPersistSnapshot(data []byte) {
 	 r := bytes.NewBuffer(data)
 	 d := gob.NewDecoder(r)
 
+	 kv.committedConfig = shardmaster.Config{}
+	 kv.transitionState = TransitionState{}
+
 	 // Discard lastIncludedIndex and lastIncludedTerm
 	 var lastIncludedIndex int
 	 var lastIncludedTerm int
@@ -69,6 +78,7 @@ func (kv *ShardKV) readPersistSnapshot(data []byte) {
 	 d.Decode(&kv.committedConfig)
 	 d.Decode(&kv.transitionState)
 	 d.Decode(&kv.shardTransferStorage)
+
 
 	// Since received new shardTransferStorage, need to re-initialize activeTransferRPCs to 1) correct length, and 2) values.
 	kv.activeTransferRPCs = make([]TransferRPCs, len(kv.shardTransferStorage))
@@ -83,10 +93,6 @@ func (kv *ShardKV) readPersistSnapshot(data []byte) {
 
 	}
 
-	// Error checking: Ensure that kv.transitionState and committedConfig Configurations have the expected Num. 
-	if (kv.transitionState.FutureConfig.Num < kv.committedConfig.Num) {
-		kv.DError("Mismatching Num in transitionSate and committedConfig.  kv.transitionState => %+v, \n kv.committedConfig => %+v", kv.transitionState, kv.committedConfig)
-	}
 
 }
 
@@ -450,47 +456,55 @@ func (kv *ShardKV) stringToOpType(op_s string) (op_type OpType) {
 	return op_type
 }
 
-func (sm *ShardKV) DPrintf2(format string, a ...interface{}) (n int, err error) {
-	if sm.debug >= 2 {
+func (kv *ShardKV) DPrintf2(format string, a ...interface{}) (n int, err error) {
+	if kv.debug >= 2 {
 		custom_input := make([]interface{},2)
-		custom_input[0] = sm.gid
-		custom_input[1] = sm.me
+		custom_input[0] = kv.gid
+		custom_input[1] = kv.me
 		out_var := append(custom_input , a...)
 		log.Printf("GID%d, KVServer%d, " + format + "\n", out_var...)
 	}
 	return
 }
 
-func (sm *ShardKV) DPrintf1(format string, a ...interface{}) (n int, err error) {
-	if sm.debug >= 1 {
+func (kv *ShardKV) DPrintf1(format string, a ...interface{}) (n int, err error) {
+	if kv.debug >= 1 {
 		custom_input := make([]interface{},2)
-		custom_input[0] = sm.gid
-		custom_input[1] = sm.me
+		custom_input[0] = kv.gid
+		custom_input[1] = kv.me
 		out_var := append(custom_input , a...)
 		log.Printf("GID%d, KVServer%d, " + format + "\n", out_var...)
 	}
 	return
 }
 
-func (sm *ShardKV) DPrintf_now(format string, a ...interface{}) (n int, err error) {
-	if sm.debug >= 0 {
+func (kv *ShardKV) DPrintf_now(format string, a ...interface{}) (n int, err error) {
+	if kv.debug >= 0 {
 		custom_input := make([]interface{},2)
-		custom_input[0] = sm.gid
-		custom_input[1] = sm.me
+		custom_input[0] = kv.gid
+		custom_input[1] = kv.me
 		out_var := append(custom_input , a...)
 		log.Printf("GID%d, KVServer%d, " + format + "\n", out_var...)
 	}
 	return
 }
 
-func (sm *ShardKV) DError(format string, a ...interface{}) (n int, err error) {
-	if sm.debug >= 0 {
+func (kv *ShardKV) DError(format string, a ...interface{}) (n int, err error) {
+	if kv.debug >= 0 {
 		custom_input := make([]interface{},2)
-		custom_input[0] = sm.gid
-		custom_input[1] = sm.me
+		custom_input[0] = kv.gid
+		custom_input[1] = kv.me
 		out_var := append(custom_input , a...)
 		panic_out := fmt.Sprintf("GID%d, KVServer%d, " + format + "\n", out_var...)
 		log.Fatalf(panic_out)
 	}
 	return
+}
+
+func (kv *ShardKV) Locking(locked bool) {
+	if (locked) {
+		//log.Printf("GID%d, KVServer%d: Now Acquiring Lock \n", kv.gid, kv.me)
+	} else if (!locked) {
+		//log.Printf("GID%d, KVServer%d: Now Releasing Lock \n", kv.gid, kv.me)
+	}
 }

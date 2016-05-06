@@ -103,12 +103,14 @@ type ShardKV struct {
 func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 	// Your code here.
 	kv.mu.Lock()
+	kv.Locking(true)
 
 	// Transition Check: If server is in transition, automatically reject incoming RPCs (they will just clog the Raft log)
 	if (kv.transitionState.InTransition) {
 		reply.WrongLeader = true
 		reply.Err = OK
 		kv.mu.Unlock()
+		kv.Locking(false)
 		return
 	}
 
@@ -118,6 +120,7 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 		reply.WrongLeader = true
 		reply.Err = ErrWrongGroup
 		kv.mu.Unlock()
+		kv.Locking(false)
 		return
 	}
 
@@ -143,6 +146,7 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 		reply.Value = returnValue // Return the value already committed.
 		reply.Err = OK
 		kv.mu.Unlock()
+		kv.Locking(false)
 		return
 
 		// Process the next valid RPC Request with Start(): If 1) client isn't known or 2) the request follows the request already committed.
@@ -150,11 +154,13 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 
 		// Unlock before Start (so Start can be in parallel)
 		kv.mu.Unlock()
+		kv.Locking(false)
 
 		// 2) Send Op Struct to Raft (using kv.rf.Start())
 		index, _, isLeader := kv.rf.Start(thisOp)
 
 		kv.mu.Lock()
+		kv.Locking(true)
 
 		// 3) Handle Response: If Raft is not leader, return appropriate reply to client
 		if !isLeader {
@@ -165,6 +171,7 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 			reply.Value = "" // Return value from key. Returns "" if key doesn't exist
 			reply.Err = OK
 			kv.mu.Unlock()
+			kv.Locking(false)
 			return
 
 			// 4) Handle Response: If Raft is leader, wait until raft committed Op Struct to log
@@ -176,6 +183,7 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 
 			// Unlock before response Channel. Since response channel blocks, need to allow other threads to run.
 			kv.mu.Unlock()
+			kv.Locking(false)
 
 			// Wait until: 1) Raft indicates that RPC is successfully committed, 2) this server discovers it's not the leader, 3) failure
 			rpcReturnInfo, open := <-resp_chan
@@ -184,6 +192,7 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 			// Once it receives the response, just wait until scheduled to run.
 			// Error if we receive two writes on the same channel.
 			kv.mu.Lock()
+			kv.Locking(true)
 			// Operation successfully executed. 
 			if rpcReturnInfo.success && open && rpcReturnInfo.error == OK {
 				kv.DPrintf1("Action: GET APPLIED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
@@ -191,6 +200,7 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 				reply.Value = rpcReturnInfo.value // Return value from key. Returns "" if key doesn't exist
 				reply.Err = OK
 				kv.mu.Unlock()
+				kv.Locking(false)
 				return
 
 			// Op Failed to execute properly
@@ -202,6 +212,7 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 					reply.WrongLeader = true
 					reply.Err = rpcReturnInfo.error
 					kv.mu.Unlock()
+					kv.Locking(false)
 					return
 				// 2) If this server discovers it doesn't own the key, tell client to find correct group. 
 				} else if (rpcReturnInfo.error == ErrWrongGroup) {
@@ -209,6 +220,7 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 					reply.WrongLeader = false
 					reply.Err = rpcReturnInfo.error
 					kv.mu.Unlock()
+					kv.Locking(false)
 					return
 				}
 
@@ -225,12 +237,14 @@ func (kv *ShardKV) Get(args *GetArgs, reply *GetReply) {
 func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 	// Your code here.
 	kv.mu.Lock()
+	kv.Locking(true)
 
 	// Transition Check: If server is in transition, automatically reject incoming RPCs (they will just clog the Raft log)
 	if (kv.transitionState.InTransition) {
 		reply.WrongLeader = true
 		reply.Err = OK
 		kv.mu.Unlock()
+		kv.Locking(false)
 		return
 	}
 
@@ -240,6 +254,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		reply.WrongLeader = true
 		reply.Err = ErrWrongGroup
 		kv.mu.Unlock()
+		kv.Locking(false)
 		return
 	}
 
@@ -264,6 +279,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 		reply.WrongLeader = false
 		reply.Err = OK
 		kv.mu.Unlock()
+		kv.Locking(false)
 		return
 
 	// Process the next valid RPC Request with Start(): If 1) client isn't known or 2) the request follows the request already committed.
@@ -271,11 +287,13 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 
 		// Unlock before Start (so Start can be in parallel)
 		kv.mu.Unlock()
+		kv.Locking(false)
 
 		// 2) Send Op Struct to Raft (using kv.rf.Start())
 		index, _, isLeader := kv.rf.Start(thisOp)
 
 		kv.mu.Lock()
+		kv.Locking(true)
 
 		// 3) Handle Response: If Raft is not leader, return appropriate reply to client
 		if !isLeader {
@@ -284,10 +302,12 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 			reply.WrongLeader = true
 			reply.Err = OK
 			kv.mu.Unlock()
+			kv.Locking(false)
 			return
 
 			// Unlock on any reply
 			kv.mu.Unlock()
+			kv.Locking(false)
 
 			// 4) Handle Response: If Raft is leader, wait until raft committed Op Struct to log
 		} else if isLeader {
@@ -297,6 +317,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 
 			// Unlock before response Channel. Since response channel blocks, need to allow other threads to run.
 			kv.mu.Unlock()
+			kv.Locking(false)
 
 			// Wait until: 1) Raft indicates that RPC is successfully committed, 2) this server discovers it's not the leader, 3) failure
 			rpcReturnInfo, open := <-resp_chan
@@ -305,6 +326,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 			// Once it receives the response, just wait until scheduled to run.
 			// Error if we receive two writes on the same channel.
 			kv.mu.Lock()
+			kv.Locking(true)
 			// Successful commit indicated by Raft: Respond to Client
 			if rpcReturnInfo.success && open && rpcReturnInfo.error == OK {
 
@@ -312,6 +334,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 				reply.WrongLeader = false
 				reply.Err = OK
 				kv.mu.Unlock()
+				kv.Locking(false)
 				return
 
 			//OP Failed to Execute
@@ -323,6 +346,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 					reply.WrongLeader = true
 					reply.Err = rpcReturnInfo.error
 					kv.mu.Unlock()
+					kv.Locking(false)
 					return
 				// 2) If this server discovers it doesn't own the key, tell client to find correct group. 
 				} else if (rpcReturnInfo.error == ErrWrongGroup) {
@@ -330,6 +354,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 					reply.WrongLeader = false
 					reply.Err = rpcReturnInfo.error
 					kv.mu.Unlock()
+					kv.Locking(false)
 					return
 				}
 			}
@@ -343,6 +368,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 // Receive keys from new shard. 
 func (kv *ShardKV) AddShardKeys(args *AddShardsArgs, reply *AddShardsReply) {
 	kv.mu.Lock()
+	kv.Locking(true)
 	kv.DPrintf1("Action: Receive AddShardKeys RPC REQUEST: kv.committedConfig => %+v, Args => %+v, kv.transitionState => %+v \n", kv.committedConfig, args, kv.transitionState )
 
 	thisOp := Op{
@@ -356,16 +382,6 @@ func (kv *ShardKV) AddShardKeys(args *AddShardsArgs, reply *AddShardsReply) {
 	// Default Value
 	reply.WrongLeader = true
 
-	
-	if (kv.committedConfig.Num >= int(args.RequestID)) {
-		kv.DPrintf1("Action: REPEAT REQUEST. Committed Configuration ahead of received configuration. Respond to client.   \n")
-		// Note: At this point, it's unkown if this server is the leader.
-		// However, if the server has the right information for the client, send it.
-		reply.WrongLeader = false
-		kv.mu.Unlock()
-		return
-
-	}
 
 	// Return RPC with success: if the clients configuration is ahead. 
 	// This happens when the leader has already committed the configuration, but a follower sends an RPC as it's catching up. 
@@ -377,6 +393,7 @@ func (kv *ShardKV) AddShardKeys(args *AddShardsArgs, reply *AddShardsReply) {
 		// However, if the server has the right information for the client, send it.
 		reply.WrongLeader = false
 		kv.mu.Unlock()
+		kv.Locking(false)
 		return
 
 
@@ -388,15 +405,18 @@ func (kv *ShardKV) AddShardKeys(args *AddShardsArgs, reply *AddShardsReply) {
 
 			// Unlock before Start (so Start can be in parallel)
 			kv.mu.Unlock()
+			kv.Locking(false)
 
 			// Send Op Struct to Raft (using kv.rf.Start())
 			index, _, isLeader := kv.rf.Start(thisOp)
 			kv.mu.Lock()
+			kv.Locking(true)
 
 			if !isLeader {
 				kv.DPrintf2("Action: Rejected AddShardKeys. KVServer%d not Leader.  \n", kv.me)
 				reply.WrongLeader = true
 				kv.mu.Unlock()
+				kv.Locking(false)
 				return
 
 
@@ -408,18 +428,21 @@ func (kv *ShardKV) AddShardKeys(args *AddShardsArgs, reply *AddShardsReply) {
 
 				// Unlock before response Channel. Since response channel blocks, need to allow other threads to run.
 				kv.mu.Unlock()
+				kv.Locking(false)
 
 				// Wait until: 1) Raft indicates that RPC is successfully committed, 2) this server discovers it's not the leader, 3) failure
 				rpcReturnInfo, open := <-resp_chan
 
 
 				kv.mu.Lock()
+				kv.Locking(true)
 				// Successful commit indicated by Raft: Respond to Client
 				if open && rpcReturnInfo.success {
 
 					kv.DPrintf1("Action: SHARDTRANSFER APPLIED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n",index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
 					reply.WrongLeader = false
 					kv.mu.Unlock()
+					kv.Locking(false)
 					return
 
 				// Commit Failed: If this server discovers it's no longer the leader, then tell the client to find the real leader,
@@ -429,6 +452,7 @@ func (kv *ShardKV) AddShardKeys(args *AddShardsArgs, reply *AddShardsReply) {
 					kv.DPrintf1("Action: SHARDTRANSFER ABORTED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n", index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
 					reply.WrongLeader = true
 					kv.mu.Unlock()
+					kv.Locking(false)
 					return
 
 				}
@@ -438,6 +462,7 @@ func (kv *ShardKV) AddShardKeys(args *AddShardsArgs, reply *AddShardsReply) {
 			kv.DPrintf2("Action: Rejected AddShardKeys because KVServer%d not in correct transition Period. kv.committedConfig => %+v, kv.transitionState => %+v  \n", kv.me, kv.committedConfig, kv.transitionState)
 			reply.WrongLeader = true
 			kv.mu.Unlock()
+			kv.Locking(false)
 			return
 		}
 	}
@@ -460,26 +485,29 @@ func (kv *ShardKV) sendShardsToGroup(gid int, args AddShardsArgs, futureConfig s
 			for si := 0; si < len(servers); si++ {
 
 				kv.mu.Lock()
-				selectedServer := kv.findLeaderServer(si, gid)
-				kv.mu.Unlock()
-				kv.DPrintf1("sendShardToGroup to server (%s) in gid%d", futureConfig.Groups[gid][selectedServer], gid)
+				kv.Locking(true)
 
+				selectedServer := kv.findLeaderServer(si, gid)
+				kv.DPrintf1("sendShardToGroup to server (%s) in gid%d", futureConfig.Groups[gid][selectedServer], gid)
 				srv := kv.make_end(futureConfig.Groups[gid][selectedServer])
+
+				kv.mu.Unlock()
+				kv.Locking(false)
 				
 				var reply AddShardsReply
 				ok := kv.sendRPC(srv, "ShardKV.AddShardKeys", &args, &reply)
 
+				kv.mu.Lock()
+				kv.Locking(true)
+
 				// If Wrong Leader (reset stored leader)
 				// If no response, reset leader 
 				if !ok || (ok && reply.WrongLeader == true) {
-					kv.mu.Lock()
 					kv.currentLeader[gid] = -1
-					kv.mu.Unlock()
 				}
 
 				// Success: Shards have been applied. 
 				if ok && reply.WrongLeader == false  {
-					kv.mu.Lock()
 					kv.DPrintf1("Action: Successfully SENT SHARD TO GROUP %d. Sent Args => %+v, Received Reply => %+v \n", gid, args, reply)
 
 					//Update stored Leader
@@ -508,8 +536,10 @@ func (kv *ShardKV) sendShardsToGroup(gid int, args AddShardsArgs, futureConfig s
 						thisOp.RequestID = args.RequestID
 
 						kv.mu.Unlock()
+						kv.Locking(false)
 						index, _, isLeader := kv.rf.Start(thisOp)
 						kv.mu.Lock()
+						kv.Locking(true)
 
 						if (isLeader) {
 							kv.DPrintf1("Action: KVServer%d is Leader. Sent TransferSuccess REQUEST through Raft. Index => %d, Operation => %+v \n", kv.me, index, thisOp)
@@ -517,15 +547,19 @@ func (kv *ShardKV) sendShardsToGroup(gid int, args AddShardsArgs, futureConfig s
 
 
 					} else if committed {
-						kv.DPrintf1("Action: REPEAT REQUEST. TransferSuccess has alrady been removed from shardTransferStorage.  \n")
+						kv.DPrintf1("Action: REPEAT REQUEST. TransferSuccess has alrady been removed from shardTransferStorage. kv.transitionState => %+v, kv.committedConfig => %+v, kv.shardTransferStorage => %+v \n", kv.transitionState, kv.committedConfig, kv.shardTransferStorage)
 					}
 
 
 
 					kv.mu.Unlock()
+					kv.Locking(false)
 					return
 
 				}
+
+				kv.mu.Unlock()
+				kv.Locking(false)
 
 			}
 		}
@@ -550,7 +584,8 @@ func (kv *ShardKV) Kill() {
 
 	// Note: While the serve is being killed, should not handle any other incoming RPCs, etc.
 	kv.mu.Lock()
-	defer kv.mu.Unlock()
+	kv.Locking(true)
+
 	kv.DPrintf1("%s \nAction: Dies \n", debug_break)
 
 	// Kill all open go routines when this server quites.
@@ -562,6 +597,9 @@ func (kv *ShardKV) Kill() {
 
 	// Turn off debuggin output
 	kv.debug = -1
+
+	kv.mu.Unlock()
+	kv.Locking(false)
 }
 
 
@@ -600,6 +638,7 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 	gob.Register(TransitionState{})
 	gob.Register(ShardPackage{})
 	gob.Register(CommitStruct{})
+	gob.Register(shardmaster.Config{})
 
 
 	kv := new(ShardKV)
@@ -615,7 +654,7 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 	kv.mu = sync.Mutex{}
 
 	kv.mu.Lock()
-	defer kv.mu.Unlock()
+	kv.Locking(true)
 
 	// Saves current leaders of other GIDs
 	kv.currentLeader = make(map[int]int)
@@ -665,6 +704,8 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 
 	go kv.sendShardPackages()
 
+	kv.mu.Unlock()
+	kv.Locking(false)
 	return kv
 }
 
@@ -677,6 +718,7 @@ func (kv *ShardKV) sendShardPackages() {
 		_, isLeader := kv.rf.GetState()
 
 		kv.mu.Lock()
+		kv.Locking(true)
 
 		// Ideally only the leader sends RPCs
 		// Note: Once an RPC routine is activated, it will continue until completion. 
@@ -709,6 +751,7 @@ func (kv *ShardKV) sendShardPackages() {
 			}
 		}
 		kv.mu.Unlock()
+		kv.Locking(false)
 		// Allow other processes to operate 
 		time.Sleep(100 * time.Millisecond)
 	}
@@ -726,18 +769,29 @@ func (kv *ShardKV) checkConfiguration() {
 			return
 		case <-time.After(time.Millisecond * 100):
 
+			kv.mu.Lock()
+			kv.Locking(true)
 			// Transition Check: If server is in transition, don't clog up the Raft log. 
 			if (kv.transitionState.InTransition) {
+				kv.DPrintf2("Skip checkConfiguration function since in transition. \n TRANSITION STATE: => %+v, \n SHARD TRANSFER STORAGE => %+v, ", kv.transitionState, kv.shardTransferStorage )
+				kv.mu.Unlock()
+				kv.Locking(false)
 				continue
 			}
 
+			nextConfigNum := kv.committedConfig.Num+1
 
-			//Check if a higher configuration exists (configuration that is one higher).
-			configTemp := kv.mck.Query(kv.committedConfig.Num+1)
+
+			kv.mu.Unlock()
+			kv.Locking(false)
+			// Check if a higher configuration exists (configuration that is one higher).
+			// Query should not be in lock (so we can handle other processes in parallel. )
+			configTemp := kv.mck.Query(nextConfigNum)
 			kv.mu.Lock()
+			kv.Locking(true)
 
 			// If there is an updated configuration, submit it through Raft. 
-			if (configTemp.Num == kv.committedConfig.Num+1) {
+			if (configTemp.Num == nextConfigNum) {
 
 				thisOp := Op{
 					CommandType: Configuration,
@@ -746,9 +800,11 @@ func (kv *ShardKV) checkConfiguration() {
 
 				// Unlock before Start (so Start can be in parallel)
 				kv.mu.Unlock()
+				kv.Locking(false)
 				// Send Op Struct to Raft (using kv.rf.Start())
 				index, _, isLeader := kv.rf.Start(thisOp)
 				kv.mu.Lock()
+				kv.Locking(true)
 
 				// For Logging
 				if isLeader {
@@ -759,6 +815,7 @@ func (kv *ShardKV) checkConfiguration() {
 			}
 
 			kv.mu.Unlock()
+			kv.Locking(false)
 		}
 	}
 }
@@ -774,6 +831,7 @@ func (kv *ShardKV) processCommits() {
 
 			// Lock the entire code-set that handles returned Operations from applyCh
 			kv.mu.Lock()
+			kv.Locking(true)
 
 			kv.DPrintf2("State before Receiving OP on applyCh. commitMsg => %+v, Map => %+v, RPC_Queue => %+v, CommitTable %+v \n", commitMsg, kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
 
@@ -782,8 +840,24 @@ func (kv *ShardKV) processCommits() {
 				kv.readPersistSnapshot(commitMsg.Snapshot)
 				kv.DPrintf2("State Machine reset with snapshot. \n\n kv.transitionState => %+v, \n \n kv.committedConfig => %+v \n  \n", kv.transitionState, kv.committedConfig )
 
+			// Error checking: Ensure that kv.transitionState and committedConfig Configurations have the expected Num. 
+			if (kv.transitionState.FutureConfig.Num < kv.committedConfig.Num) {
+				kv.DError("Mismatching Num in transitionSate and committedConfig.  kv.transitionState => %+v, \n kv.committedConfig => %+v", kv.transitionState, kv.committedConfig)
+			}
+
+			// Error Checking
+			if (kv.transitionState.FutureConfig.Num == kv.committedConfig.Num && kv.transitionState.InTransition) {
+				kv.DError("Action (read): In transition between configurations while committedConfig is already updated to the new one. ")
+			}
+
+			// Error Checking
+			if (len(kv.transitionState.GroupsToReceiveFrom) > 0 && !kv.transitionState.InTransition) {
+				kv.DError("Action (read): Indicat that not in transition when still have Shards to Receive. ")
+			}
+
 				// Just apply the snapshot. This will skip all of the rest of the exectuion, and return to select. 
 				kv.mu.Unlock()
+				kv.Locking(false)
 				continue
 			}
 			
@@ -802,18 +876,20 @@ func (kv *ShardKV) processCommits() {
 				delete(kv.waitingForRaft_queue, commitMsg.Index)
 				kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
 				kv.mu.Unlock()
+				kv.Locking(false)
 				continue
 			}
 
 			// Shard Check: Check if group owns the incoming key (for Get, Put and Append)
 			if (thisCommand.CommandType == Get || thisCommand.CommandType == Put || thisCommand.CommandType == Append) {
 		 		
-		 		kv.DPrintf1("Action: Rejected operation since key is not part of this GID. thisCommand => %+v", thisCommand)
 				thisShard := key2shard(thisCommand.Key)
 				if (kv.committedConfig.Shards[thisShard] != kv.gid) {
+					kv.DPrintf1("Action: Rejected operation since key is not part of this GID. thisCommand => %+v", thisCommand)
 					kv.handleOpenRPCs(commitMsg.Index, thisCommand, "", ErrWrongGroup)
 					kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
 					kv.mu.Unlock()
+					kv.Locking(false)
 					continue
 				}
 			}
@@ -889,7 +965,7 @@ func (kv *ShardKV) processCommits() {
 			} else if (thisCommand.CommandType == ShardTransfer) {
 				// Similar functionality to the commit table. 
 				if (kv.transitionState.InTransition) && (int(thisCommand.RequestID) == kv.transitionState.FutureConfig.Num) {
-					kv.DPrintf1("Action: Received and processing SHARD TRANSFER OP on ApplyCh. Operation => %+v, commitMsg => %+v, kv.committedConfig => %+v \n", thisCommand, commitMsg, kv.committedConfig)
+					kv.DPrintf1("Action: Received and processing SHARD TRANSFER OP on ApplyCh. commitMsg => %+v, kv.committedConfig => %+v, kv.transitionState => %+v \n", commitMsg, kv.committedConfig, kv.transitionState)
 					
 
 
@@ -1018,6 +1094,7 @@ func (kv *ShardKV) processCommits() {
 			kv.DPrintf2("State after Receiving OP on applyCh. Map => %+v, RPC_Queue => %+v, CommitTable %+v \n \n \n ",kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
 
 			kv.mu.Unlock()
+			kv.Locking(false)
 
 		case <-kv.shutdownChan:
 			return

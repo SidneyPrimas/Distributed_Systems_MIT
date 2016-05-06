@@ -128,6 +128,7 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 
 	sm.mu.Lock()
 
+
 	// Determine if RequestID has already been committed, or is the next request to commit.
 	inCommitTable, returnValue := sm.checkCommitTable_beforeRaft(thisOp)
 
@@ -203,6 +204,10 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 			sm.mu.Unlock()
 		}
 	}
+
+
+	sm.DPrintf_now("Action: Received Query Request, QueryArgs => %+v, QueryReply => %+v \n" , args, reply)
+
 }
 
 
@@ -246,12 +251,27 @@ func (sm *ShardMaster) Raft() *raft.Raft {
 func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister) *ShardMaster {
 	sm := new(ShardMaster)
 	sm.me = me
-	sm.debug = -1
+	sm.debug = 0
 
 	sm.configs = make([]Config, 1)
 	sm.configs[0].Groups = map[int][]string{}
 
+	// Register all interface and exported variables. 
 	gob.Register(Op{})
+	gob.Register(Config{})
+	gob.Register(JoinArgs{})
+	gob.Register(JoinReply{})
+	gob.Register(LeaveArgs{})
+	gob.Register(LeaveReply{})
+	gob.Register(MoveArgs{})
+	gob.Register(MoveReply{})
+	gob.Register(QueryArgs{})
+	gob.Register(QueryReply{})
+	gob.Register(GenericReply{})
+	gob.Register(CommitStruct{})
+
+
+
 	sm.applyCh = make(chan raft.ApplyMsg)
 	sm.rf = raft.Make(servers, me, persister, sm.applyCh)
 
@@ -315,6 +335,8 @@ func (sm *ShardMaster) processCommits() {
 						if (thisCommand.Query_Num == -1) || (thisCommand.Query_Num > len(sm.configs)-1) {
 							thisCommand.Query_Num = len(sm.configs)-1
 						}
+
+						sm.DPrintf_now("Action: Processing Query from Raft. sm.configs => %+v \n", sm.configs)
 
 						// Exectue operation:
 						newValue := sm.configs[thisCommand.Query_Num]
@@ -479,7 +501,8 @@ func (sm *ShardMaster) distributeShards(prevShards [NShards]int, newGroups map[i
 }
 
 func (sm *ShardMaster) getShardDistribution(newShards [NShards]int, newGroups map[int][]string) (minGID int, minShards int, maxGID int, maxShards int) {
-	countShardsPerGroup := map[int]int{}
+	groupMap := []int
+	shardCount := []int
 
 	// Initialize counting map
 	for gid := range(newGroups) {
@@ -495,6 +518,8 @@ func (sm *ShardMaster) getShardDistribution(newShards [NShards]int, newGroups ma
 	//Find max shards assigned to a group
 	maxShards = -1
 	maxGID = -1
+	
+	
 	for gid, count := range(countShardsPerGroup) {
 
 		//Initialize variables (with first values in map)
@@ -519,7 +544,7 @@ func (sm *ShardMaster) getShardDistribution(newShards [NShards]int, newGroups ma
 
 	minShards = NShards + 1
 	minGID = -1
-	// Edge case: Make sure we never assign a shart to Group 0. 
+	// Edge case: Make sure we never assign a shard to Group 0. 
 	for gid, count := range(countShardsPerGroup) {
 		//Initialize variables (with first values in map)
 		if (minGID == -1) && (gid != 0) {
@@ -816,7 +841,7 @@ func (sm *ShardMaster) DPrintf1(format string, a ...interface{}) (n int, err err
 }
 
 func (sm *ShardMaster) DPrintf_now(format string, a ...interface{}) (n int, err error) {
-	if sm.debug >= 0 {
+	if sm.debug >= 0{
 		custom_input := make([]interface{},1)
 		custom_input[0] = sm.me
 		out_var := append(custom_input , a...)

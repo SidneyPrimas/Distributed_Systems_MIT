@@ -265,6 +265,7 @@ func (rf *Raft) getVotes(server int)  (myvoteGranted bool, msg_received bool, re
 
 	//Return Variable: defaults to false
 	myvoteGranted  = false
+	returnedTerm = -1 // Set default to -1 if RPC fails
 
 	//Setup outgoing arguments
 	args := RequestVoteArgs{
@@ -289,7 +290,10 @@ func (rf *Raft) getVotes(server int)  (myvoteGranted bool, msg_received bool, re
 	 	}
  	}
 
- 	returnedTerm = reply.Term
+ 	// Only update term if RPC received is valid. 
+ 	if msg_received {
+ 		returnedTerm = reply.Term
+ 	}
 
  	return myvoteGranted, msg_received, returnedTerm
 }
@@ -402,6 +406,9 @@ func (rf *Raft) updateFollowerLogs(server int)  (msg_received bool, returnedTerm
 
 	rf.dPrintf1("Server%d, Term%d, State: %s, Action: Leader send AppendEntry RPC  to Server%d. matchIndex => %v, nextIndex => %v \n" ,rf.me, rf.currentTerm, rf.stateToString(), server, rf.matchIndex, rf.nextIndex)
 
+	// Set default value
+	returnedTerm = -1
+
 	// Setup outgoing arguments.
 	// Protocol: These arguments should be re-initialized for each RPC call since rf might update in the meantime.
 	// We want to replicate the leader log everywhere, so we can always send it when the follower is out of date. 
@@ -471,7 +478,13 @@ func (rf *Raft) updateFollowerLogs(server int)  (msg_received bool, returnedTerm
 
 	}
 	//Return if the server is still responding. 
-	returnedTerm = reply.Term
+
+	// Only return reply.Term if we actually received a reply. 
+	if (msg_received) {
+		returnedTerm = reply.Term
+	}
+
+
 	return msg_received, returnedTerm
 }
 

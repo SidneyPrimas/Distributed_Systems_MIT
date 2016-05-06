@@ -250,7 +250,7 @@ func TestBasic(t *testing.T) {
 
 func TestMulti(t *testing.T) {
 	const nservers = 3
-	cfg := make_config(t, nservers, false)
+	cfg := make_config(t, nservers, true)
 	defer cfg.cleanup()
 
 	ck := cfg.makeClient(cfg.All())
@@ -342,6 +342,7 @@ func TestMulti(t *testing.T) {
 		m[npara+1+i] = []string{"a", "b", "c"}
 	}
 	ck.Join(m)
+	fmt.Printf("Test: Minimal transfers after multijoins ...")
 	c2 := ck.Query(-1)
 	for i := int(1); i <= npara; i++ {
 		for j := 0; j < len(c1.Shards); j++ {

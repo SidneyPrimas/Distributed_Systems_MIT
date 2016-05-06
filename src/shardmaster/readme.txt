@@ -113,8 +113,6 @@ To Do (Update Sending Shards):
 
 Thoughts
 It seems like I have a dead lock issue. With a deadlock issue I should make sure that 1) I am replying to RPCs (even an RPC times out, that server probably has an issue) and 2) log around locks and see who hasn't released a lock. 
-Debug my race conditions on reliable1 and reliable2 (and all other tests). 
-Think about why unreliable causes an issue. 
 
 
 Hints: 
