@@ -9,9 +9,9 @@ mkdir -p Test
 for test in "${TESTS[@]}"
 do
 	mkdir -p Test/${test}
-  	for i in {101..110}
+  	for i in {121..130}
   	do
-    go test -run=${test} -race  2>&1 | tee ./Test/${test}/${i}.log
+    go test -run=${test}  2>&1 | tee ./Test/${test}/${i}.log
     	#go test -run=${test} &> ./Test/${test}/${i}.log
 
     	if grep -q FAIL ./Test/${test}/${i}.log; then

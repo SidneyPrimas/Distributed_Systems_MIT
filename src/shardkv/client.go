@@ -15,6 +15,7 @@ import "shardmaster"
 import "time"
 import "fmt"
 import "log"
+import mrand "math/rand"
 
 //
 // which shard is a key in?
@@ -85,14 +86,15 @@ func (ck *Clerk) Get(key string) string {
 	args.ClientID = ck.clientID
 	args.RequestID = ck.currentRPCNum
 
-	for {
+
+	for  {
 		shard := key2shard(key)
 		gid := ck.config.Shards[shard]
 		// If the gid exists in our current stored configuration. 
 		if servers, ok := ck.config.Groups[gid]; ok {
 			// try each server for the shard.
-			for si := 0; si < len(servers); si++ {
-				selectedServer := ck.findLeaderServer(si, gid)
+
+				selectedServer := ck.getRandomServer(gid)
 				srv := ck.make_end(servers[selectedServer])
 				
 				var reply GetReply
@@ -114,18 +116,22 @@ func (ck *Clerk) Get(key string) string {
 						// RPC Completed so increment the RPC count by 1.
 						ck.currentRPCNum = ck.currentRPCNum + 1
 
+
 						return reply.Value
 					}
 				}
 				// Handle situation where wrong group.
 				if ok && (reply.Err == ErrWrongGroup) {
-					break
+					// ask master for the latest configuration.
+					ck.config = ck.sm.Query(-1)
+					time.Sleep(100 * time.Millisecond)
 				}
-			}
+
+		} else {
+			// ask master for the latest configuration.
+			ck.config = ck.sm.Query(-1)
+			time.Sleep(100 * time.Millisecond)
 		}
-		time.Sleep(100 * time.Millisecond)
-		// ask master for the latest configuration.
-		ck.config = ck.sm.Query(-1)
 	}
 
 	ck.DError("Return from Get in ShardKV Client. Should never return from here.")
@@ -152,8 +158,8 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 		// If the gid exists in our current stored configuration. 
 		if servers, ok := ck.config.Groups[gid]; ok {
 			// try each server for the shard.
-			for si := 0; si < len(servers); si++ {
-				selectedServer := ck.findLeaderServer(si, gid)
+			
+				selectedServer := ck.getRandomServer(gid)
 				srv := ck.make_end(servers[selectedServer])
 				
 				var reply PutAppendReply
@@ -179,14 +185,19 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 					}
 				}
 				if ok && reply.Err == ErrWrongGroup {
-					break
+					// ask master for the latest configuration.
+					ck.config = ck.sm.Query(-1)
+					time.Sleep(100 * time.Millisecond)
 				}
-			}
+
+		} else {
+			// ask master for the latest configuration.
+			ck.config = ck.sm.Query(-1)
+			time.Sleep(100 * time.Millisecond)
 		}
-		time.Sleep(100 * time.Millisecond)
-		// ask master for the latest configuration.
-		ck.config = ck.sm.Query(-1)
 	}
+
+	ck.DError("Return from PUTAPPEND in ShardKV Client. Should never return from here.")
 }
 
 func (ck *Clerk) Put(key string, value string) {
@@ -198,16 +209,20 @@ func (ck *Clerk) Append(key string, value string) {
 
 //********** HELPER FUNCTIONS **********//
 
-// Select server to send request to.
-func (ck *Clerk) findLeaderServer(si int, gid int) (selectedServer int) {
+func (ck *Clerk) getRandomServer(gid int) (testServer int) {
 
-	selectedServer, ok := ck.currentLeader[gid]
-	if (ok && selectedServer != -1){
+
+	//selectedServer, ok := ck.currentLeader[gid]
+	//if (ok && selectedServer != -1){
+	//	return selectedServer
+	//} else {
+		randSource := mrand.NewSource(time.Now().UnixNano())
+		r := mrand.New(randSource)
+		selectedServer := r.Int() % (len(ck.config.Groups[gid]))
+
 		return selectedServer
-	} else {
-		selectedServer = si
-		return selectedServer
-	}
+	//}
+
 }
 
 // Send out an RPC (with timeout implemented)
@@ -232,6 +247,7 @@ func (ck *Clerk) sendRPC(srv *labrpc.ClientEnd, function string, goArgs interfac
 }
 
 //********** UTILITY FUNCTIONS **********//
+
 func (ck *Clerk) DPrintf2(format string, a ...interface{}) (n int, err error) {
 	if ck.debug >= 2 {
 		custom_input := make([]interface{},1)
