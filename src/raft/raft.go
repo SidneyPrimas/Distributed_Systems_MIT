@@ -535,7 +535,7 @@ func (rf *Raft) commitLogEntries(applyCh chan ApplyMsg) {
 			for(rf.commitIndex > rf.lastApplied) {
 
 
-				rf.dPrintf1("Server%d, Term%d, State: %s, Action: Going to send to KVRaft for execution. rf.lastApplied => %d, realLogLength => %d, len(log) => %d", rf.me, rf.currentTerm, rf.stateToString(), rf.lastApplied, rf.realLogLength(), len(rf.log))	
+				rf.real_debug("rf.lastApplied %d \n",rf.lastApplied )	
 
 				msgOut := ApplyMsg{}
 				msgOut.Index = rf.lastApplied + 1
@@ -596,6 +596,8 @@ func (rf *Raft) checkCommitStatus(reply *AppendEntriesReply) {
 			rf.dPrintf2("%s, Server%d, Term%d, State: %s, Action: Update commitIndex for Leader to %d \n", time.Now().Format(time.StampMilli), rf.me, rf.currentTerm, rf.stateToString(), rf.commitIndex)
 		}
 	}
+
+	rf.real_debug("RAFT: \n nextIndex => %+v \n matchIndex => %+v \n", rf.nextIndex, rf.matchIndex)
 
 }
 
@@ -1085,6 +1087,7 @@ func (rf *Raft) SendSnapshot(server int, args InstallSnapshotArgs, reply *Instal
 // the leader.
 //
 func (rf *Raft) Start(command interface{}) (int, int, bool) {
+	rf.real_debug("START CALLED \n")
 	// Needed to maintain appropriate concurrency 
 	rf.mu.Lock()
   	defer rf.mu.Unlock()
@@ -1114,9 +1117,16 @@ func (rf *Raft) Start(command interface{}) (int, int, bool) {
 		rf.persist()
 		rf.matchIndex[rf.me] = rf.realLogLength()
 
+		start_index := len(rf.log) - 10
+		if (start_index <0) {
+			start_index = 0
+		}
+
 		index = rf.realLogLength()
 		term = rf.currentTerm
 		isLeader = true
+
+		rf.real_debug("UPDATED LOG at INDEX%d: rf.log => %+v \n rf.matchIndex => %+v \n", index ,  rf.log[start_index:], rf.matchIndex)
 
 		// Protocol: Initiate the replication process (asynchronous)
 		// Note: We use a buffered channel to try to 1) keep the client requests ordered and 2) ensure that

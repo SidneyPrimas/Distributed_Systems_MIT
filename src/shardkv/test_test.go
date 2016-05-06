@@ -534,6 +534,8 @@ func TestUnreliable2(t *testing.T) {
 	n := 10
 	ka := make([]string, n)
 	va := make([]string, n)
+	// Create 10 keys, and put 10 values (random strings) onto those keys. 
+	// Use a single client to do all of this. 
 	for i := 0; i < n; i++ {
 		ka[i] = strconv.Itoa(i) // ensure multiple shards
 		va[i] = randstring(5)
@@ -545,6 +547,7 @@ func TestUnreliable2(t *testing.T) {
 
 	ff := func(i int) {
 		defer func() { ch <- true }()
+		// Create a new client
 		ck1 := cfg.makeClient()
 		for atomic.LoadInt32(&done) == 0 {
 			x := randstring(5)
@@ -553,6 +556,8 @@ func TestUnreliable2(t *testing.T) {
 		}
 	}
 
+	// Make 10 clients that all send an append simultaneously 
+	// Once they completed the append successfully, they respond on the channel
 	for i := 0; i < n; i++ {
 		go ff(i)
 	}
@@ -579,10 +584,14 @@ func TestUnreliable2(t *testing.T) {
 	atomic.StoreInt32(&done, 1)
 	fmt.Printf("Checking of data.\n")
 	cfg.net.Reliable(true)
+
+	// Make sure all the append statements have gone through
 	for i := 0; i < n; i++ {
+		fmt.Printf("APPEND STATEMENT COMPLETED: %d\n", i)
 		<-ch
 	}
 
+	// Once all the append statements have gone through, check all the values. 
 	for i := 0; i < n; i++ {
 		check(t, ck, ka[i], va[i])
 	}

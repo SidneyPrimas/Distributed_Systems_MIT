@@ -305,13 +305,9 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 			kv.Locking(false)
 			return
 
-			// Unlock on any reply
-			kv.mu.Unlock()
-			kv.Locking(false)
-
 			// 4) Handle Response: If Raft is leader, wait until raft committed Op Struct to log
 		} else if isLeader {
-			kv.DPrintf1("%s \n Action:  KVServer%d is Leader. Sent PUTAPPEND Request to Raft. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v\n", debug_break, kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue)
+			kv.DPrintf_now("%s \n Action:  KVServer%d is Leader. Sent PUTAPPEND Request to Raft. Index => %d, \n Map => %+v, \n Operation => %+v, \n  CommitTable => %+v, \n  RPC_Que => %+v, kv.committedConfig => %+v, \n kv.transitionState => %+v\n", debug_break, kv.me, index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, kv.committedConfig, kv.transitionState)
 
 			resp_chan := kv.updateRPCTable(thisOp, index)
 
@@ -330,7 +326,7 @@ func (kv *ShardKV) PutAppend(args *PutAppendArgs, reply *PutAppendReply) {
 			// Successful commit indicated by Raft: Respond to Client
 			if rpcReturnInfo.success && open && rpcReturnInfo.error == OK {
 
-				kv.DPrintf1("Action: PUTAPPEND APPLIED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n %s \n \n",index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, debug_break)
+				kv.DPrintf_now("Action: PUTAPPEND APPLIED. Respond to client. Index => %d, Map => %+v, Operation => %+v, CommitTable => %+v, RPC_Que => %+v \n args => %+v, reply => %+v\n %s \n \n",index, kv.kvMap, thisOp, kv.lastCommitTable, kv.waitingForRaft_queue, args, reply, debug_break)
 				reply.WrongLeader = false
 				reply.Err = OK
 				kv.mu.Unlock()
@@ -650,7 +646,7 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 
 	// Your initialization code here.
 	kv.persister = persister
-	kv.debug = 2
+	kv.debug = 0
 	kv.mu = sync.Mutex{}
 
 	kv.mu.Lock()
@@ -833,7 +829,7 @@ func (kv *ShardKV) processCommits() {
 			kv.mu.Lock()
 			kv.Locking(true)
 
-			kv.DPrintf2("State before Receiving OP on applyCh. commitMsg => %+v, \n CommitTable %+v \n kv.transitionState \n kv.shardTransferStorage \n kv.committedConfig \n", commitMsg, kv.kvMap, kv.lastCommitTable, kv.transitionState, kv.shardTransferStorage,  kv.committedConfig)
+			kv.DPrintf_now("State before Receiving OP on applyCh. commitMsg => %+v, \n CommitTable => %+v \n kv.transitionState => %+v \n kv.shardTransferStorage => %+v \n kv.committedConfig => %+v \n", commitMsg, kv.lastCommitTable, kv.transitionState, kv.shardTransferStorage,  kv.committedConfig)
 
 			// HANDLE SNAPSHOT
 			if (commitMsg.UseSnapshot) {
@@ -1080,6 +1076,8 @@ func (kv *ShardKV) processCommits() {
 
 			kv.mu.Unlock()
 			kv.Locking(false)
+
+
 
 		case <-kv.shutdownChan:
 			return
