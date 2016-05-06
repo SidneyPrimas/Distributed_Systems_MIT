@@ -7,6 +7,7 @@ import "sync"
 import "encoding/gob"
 import "log"
 import "fmt"
+import "sort"
 
 type ShardMaster struct {
 	mu      sync.Mutex
@@ -206,7 +207,7 @@ func (sm *ShardMaster) Query(args *QueryArgs, reply *QueryReply) {
 	}
 
 
-	sm.DPrintf_now("Action: Received Query Request, QueryArgs => %+v, QueryReply => %+v \n" , args, reply)
+	sm.DPrintf1("Action: Received Query Request, QueryArgs => %+v, QueryReply => %+v \n" , args, reply)
 
 }
 
@@ -336,7 +337,7 @@ func (sm *ShardMaster) processCommits() {
 							thisCommand.Query_Num = len(sm.configs)-1
 						}
 
-						sm.DPrintf_now("Action: Processing Query from Raft. sm.configs => %+v \n", sm.configs)
+						sm.DPrintf2("Action: Processing Query from Raft. sm.configs => %+v \n", sm.configs)
 
 						// Exectue operation:
 						newValue := sm.configs[thisCommand.Query_Num]
@@ -501,8 +502,7 @@ func (sm *ShardMaster) distributeShards(prevShards [NShards]int, newGroups map[i
 }
 
 func (sm *ShardMaster) getShardDistribution(newShards [NShards]int, newGroups map[int][]string) (minGID int, minShards int, maxGID int, maxShards int) {
-	groupMap := []int
-	shardCount := []int
+	countShardsPerGroup := make(map[int]int)
 
 	// Initialize counting map
 	for gid := range(newGroups) {
@@ -515,12 +515,20 @@ func (sm *ShardMaster) getShardDistribution(newShards [NShards]int, newGroups ma
 		countShardsPerGroup[gid] = countShardsPerGroup[gid] + 1
 	}
 
+
+	// Important: Figure out the mapping of the hash
+	// Important: Range is not determinsitics. 
+	var all_gids []int
+	for gid_key := range countShardsPerGroup {
+	    all_gids = append(all_gids, gid_key)
+	}
+	sort.Ints(all_gids)
+
 	//Find max shards assigned to a group
 	maxShards = -1
 	maxGID = -1
-	
-	
-	for gid, count := range(countShardsPerGroup) {
+	for _, gid := range(all_gids) {
+		count := countShardsPerGroup[gid]
 
 		//Initialize variables (with first values in map)
 		if (maxGID == -1) {
@@ -545,7 +553,8 @@ func (sm *ShardMaster) getShardDistribution(newShards [NShards]int, newGroups ma
 	minShards = NShards + 1
 	minGID = -1
 	// Edge case: Make sure we never assign a shard to Group 0. 
-	for gid, count := range(countShardsPerGroup) {
+	for _, gid := range(all_gids) {
+		count := countShardsPerGroup[gid]
 		//Initialize variables (with first values in map)
 		if (minGID == -1) && (gid != 0) {
 			minGID = gid

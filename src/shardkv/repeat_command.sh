@@ -5,5 +5,5 @@
 
 for i in {1..1}
 do
-  go test -race -run=TestUnreliable1 2>&1 | tee ./Custom_Test/TestUnreliable1_${i}.txt
+  go test -race -run=TestUnreliable2 2>&1 | tee ./Custom_Test/TestUnreliable2_${i}.txt
 done

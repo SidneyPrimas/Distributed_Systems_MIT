@@ -64,7 +64,7 @@ func (ck *Clerk) Query(num int) Config {
 
 				// Update the leader
 				ck.currentLeader = selectedServer
-				ck.DPrintf_now("Action: Query completed. Sent Args => %+v, Received Reply => %+v \n", args, reply)
+				ck.DPrintf1("Action: Query completed. Sent Args => %+v, Received Reply => %+v \n", args, reply)
 				// Final Step: RPC Completed so increment the RPC count by 1.
 				ck.currentRPCNum = ck.currentRPCNum + 1
 				return reply.Config
@@ -102,7 +102,7 @@ func (ck *Clerk) Join(servers map[int][]string) {
 
 				// Update the leader
 				ck.currentLeader = selectedServer
-				ck.DPrintf_now("Action: Join completed. Sent Args => %+v, Received Reply => %+v \n", args, reply)
+				ck.DPrintf1("Action: Join completed. Sent Args => %+v, Received Reply => %+v \n", args, reply)
 
 				// Final Step: RPC Completed so increment the RPC count by 1.
 				ck.currentRPCNum = ck.currentRPCNum + 1
@@ -141,7 +141,7 @@ func (ck *Clerk) Leave(gids []int) {
 
 				// Update the leader
 				ck.currentLeader = selectedServer
-				ck.DPrintf_now("Action: Leave completed. Sent Args => %+v, Received Reply => %+v \n", args, reply)
+				ck.DPrintf1("Action: Leave completed. Sent Args => %+v, Received Reply => %+v \n", args, reply)
 
 				// Final Step: RPC Completed so increment the RPC count by 1.
 				ck.currentRPCNum = ck.currentRPCNum + 1

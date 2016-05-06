@@ -826,34 +826,19 @@ func (kv *ShardKV) processCommits() {
 	for {
 		
 		select {
-		case commitMsg := <-kv.applyCh:
+		case commitMsg := <-kv.applyCh:    
 
 
 			// Lock the entire code-set that handles returned Operations from applyCh
 			kv.mu.Lock()
 			kv.Locking(true)
 
-			kv.DPrintf2("State before Receiving OP on applyCh. commitMsg => %+v, Map => %+v, RPC_Queue => %+v, CommitTable %+v \n", commitMsg, kv.kvMap, kv.waitingForRaft_queue, kv.lastCommitTable)
+			kv.DPrintf2("State before Receiving OP on applyCh. commitMsg => %+v, \n CommitTable %+v \n kv.transitionState \n kv.shardTransferStorage \n kv.committedConfig \n", commitMsg, kv.kvMap, kv.lastCommitTable, kv.transitionState, kv.shardTransferStorage,  kv.committedConfig)
 
 			// HANDLE SNAPSHOT
 			if (commitMsg.UseSnapshot) {
 				kv.readPersistSnapshot(commitMsg.Snapshot)
 				kv.DPrintf2("State Machine reset with snapshot. \n\n kv.transitionState => %+v, \n \n kv.committedConfig => %+v \n  \n", kv.transitionState, kv.committedConfig )
-
-			// Error checking: Ensure that kv.transitionState and committedConfig Configurations have the expected Num. 
-			if (kv.transitionState.FutureConfig.Num < kv.committedConfig.Num) {
-				kv.DError("Mismatching Num in transitionSate and committedConfig.  kv.transitionState => %+v, \n kv.committedConfig => %+v", kv.transitionState, kv.committedConfig)
-			}
-
-			// Error Checking
-			if (kv.transitionState.FutureConfig.Num == kv.committedConfig.Num && kv.transitionState.InTransition) {
-				kv.DError("Action (read): In transition between configurations while committedConfig is already updated to the new one. ")
-			}
-
-			// Error Checking
-			if (len(kv.transitionState.GroupsToReceiveFrom) > 0 && !kv.transitionState.InTransition) {
-				kv.DError("Action (read): Indicat that not in transition when still have Shards to Receive. ")
-			}
 
 				// Just apply the snapshot. This will skip all of the rest of the exectuion, and return to select. 
 				kv.mu.Unlock()

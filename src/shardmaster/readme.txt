@@ -101,10 +101,8 @@ Updated Approach to Sending Shards:
 ++ Once we receive this log from raft, 1) remove the entry from ShardsToTransfer, 2) remove the indicator of if the RPC has been sent, 3) and make sure to persist.
 + Note: Once we spawn an RPC they will always be running. So, even when the server is no longer leader, we will still try to send shards. This is not a problem since the other group can receive the shards from anybody. Only the leader will put the response into Raft. 
 
-Configuration Changes Notes: 
-+ 
-
 To Do (Update Sending Shards):
++ Why do I need to set kv.committedConfig and kv.transitionState before getting snapshot data? Fix this. 
 + When rejecting logs during the configuration transition, I should respond to the client of those logs indicating that they should resend them. 
 + Move manageSnapshots call to the end of the function. I currently don't have it at the end of the function to be thoguhtful about when not to take a snapshot.
 + Possible Issues: Try servers randomly (instead of in order) when sending RPCs

@@ -65,6 +65,7 @@ func (kv *ShardKV) readPersistSnapshot(data []byte) {
 	 r := bytes.NewBuffer(data)
 	 d := gob.NewDecoder(r)
 
+	 // Todo
 	 kv.committedConfig = shardmaster.Config{}
 	 kv.transitionState = TransitionState{}
 
@@ -91,6 +92,21 @@ func (kv *ShardKV) readPersistSnapshot(data []byte) {
 
 		kv.activeTransferRPCs[key] = newTransferRPCs
 
+	}
+
+	// Error checking: Ensure that kv.transitionState and committedConfig Configurations have the expected Num. 
+	if (kv.transitionState.FutureConfig.Num < kv.committedConfig.Num) {
+		kv.DError("Mismatching Num in transitionSate and committedConfig.  kv.transitionState => %+v, \n kv.committedConfig => %+v", kv.transitionState, kv.committedConfig)
+	}
+
+	// Error Checking
+	if (kv.transitionState.FutureConfig.Num == kv.committedConfig.Num && kv.transitionState.InTransition) {
+		kv.DError("Action (read): In transition between configurations while committedConfig is already updated to the new one. ")
+	}
+
+	// Error Checking
+	if (len(kv.transitionState.GroupsToReceiveFrom) > 0 && !kv.transitionState.InTransition) {
+		kv.DError("Action (read): Indicat that not in transition when still have Shards to Receive. ")
 	}
 
 
@@ -503,8 +519,8 @@ func (kv *ShardKV) DError(format string, a ...interface{}) (n int, err error) {
 
 func (kv *ShardKV) Locking(locked bool) {
 	if (locked) {
-		//log.Printf("GID%d, KVServer%d: Now Acquiring Lock \n", kv.gid, kv.me)
+		log.Printf("GID%d, KVServer%d: Now Acquiring Lock \n", kv.gid, kv.me)
 	} else if (!locked) {
-		//log.Printf("GID%d, KVServer%d: Now Releasing Lock \n", kv.gid, kv.me)
+		log.Printf("GID%d, KVServer%d: Now Releasing Lock \n", kv.gid, kv.me)
 	}
 }
