@@ -646,7 +646,7 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 
 	// Your initialization code here.
 	kv.persister = persister
-	kv.debug = 0
+	kv.debug = -1
 	kv.mu = sync.Mutex{}
 
 	kv.mu.Lock()

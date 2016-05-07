@@ -252,7 +252,7 @@ func (sm *ShardMaster) Raft() *raft.Raft {
 func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister) *ShardMaster {
 	sm := new(ShardMaster)
 	sm.me = me
-	sm.debug = 0
+	sm.debug = -1
 
 	sm.configs = make([]Config, 1)
 	sm.configs[0].Groups = map[int][]string{}
