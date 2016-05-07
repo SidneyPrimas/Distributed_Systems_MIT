@@ -212,16 +212,16 @@ func (ck *Clerk) Append(key string, value string) {
 func (ck *Clerk) getRandomServer(gid int) (testServer int) {
 
 
-	//selectedServer, ok := ck.currentLeader[gid]
-	//if (ok && selectedServer != -1){
-	//	return selectedServer
-	//} else {
+	selectedServer, ok := ck.currentLeader[gid]
+	if (ok && selectedServer != -1){
+		return selectedServer
+	} else {
 		randSource := mrand.NewSource(time.Now().UnixNano())
 		r := mrand.New(randSource)
-		selectedServer := r.Int() % (len(ck.config.Groups[gid]))
+		selectedServer = r.Int() % (len(ck.config.Groups[gid]))
 
 		return selectedServer
-	//}
+	}
 
 }
 

@@ -10,6 +10,7 @@ import "crypto/rand"
 import "math/big"
 import "fmt"
 import "log"
+import mrand "math/rand"
 
 type Clerk struct {
 	servers []*labrpc.ClientEnd
@@ -53,9 +54,8 @@ func (ck *Clerk) Query(num int) Config {
 	// Loop across servers until request is fieled. 
 	for {
 		//If leader not known, try each known server.
-		for server := range ck.servers {
 
-			selectedServer := ck.findLeaderServer(server)
+			selectedServer := ck.getRandomServer()
 
 			var reply QueryReply
 			ok := ck.sendRPC(selectedServer, "ShardMaster.Query", args, &reply)
@@ -71,10 +71,10 @@ func (ck *Clerk) Query(num int) Config {
 			} else {
 				ck.currentLeader = -1
 			}
-		}
-		//If leader not found after cycling through all servers, probalby within an election.  
-		time.Sleep(100 * time.Millisecond)
 	}
+
+	ck.DError("Return from Query in Client ShardMaster. Should never return from here.")
+	return Config{}
 }
 
 func (ck *Clerk) Join(servers map[int][]string) {
@@ -91,9 +91,8 @@ func (ck *Clerk) Join(servers map[int][]string) {
 	// Loop across servers until request is fieled. 
 	for {
 		//If leader not known, try each known server.
-		for server := range ck.servers {
 
-			selectedServer := ck.findLeaderServer(server)
+			selectedServer := ck.getRandomServer()
 
 			var reply JoinReply
 			ok := ck.sendRPC(selectedServer, "ShardMaster.Join", args, &reply)
@@ -110,10 +109,9 @@ func (ck *Clerk) Join(servers map[int][]string) {
 			} else {
 				ck.currentLeader = -1
 			}
-		}
-		//If leader not found after cycling through all servers, probalby within an election.  
-		time.Sleep(100 * time.Millisecond)
 	}
+
+	ck.DError("Return from Move in Join ShardMaster. Should never return from here.")
 }
 
 func (ck *Clerk) Leave(gids []int) {
@@ -130,9 +128,8 @@ func (ck *Clerk) Leave(gids []int) {
 	// Loop across servers until request is fieled. 
 	for {
 		//If leader not known, try each known server. Otherwise, try known leader.
-		for server := range ck.servers {
 
-			selectedServer := ck.findLeaderServer(server)
+			selectedServer := ck.getRandomServer()
 
 			var reply LeaveReply
 			ok := ck.sendRPC(selectedServer, "ShardMaster.Leave", args, &reply)
@@ -149,10 +146,9 @@ func (ck *Clerk) Leave(gids []int) {
 			} else {
 				ck.currentLeader = -1
 			}
-		}
-		//If leader not found after cycling through all servers, probalby within an election.  
-		time.Sleep(100 * time.Millisecond)
 	}
+
+	ck.DError("Return from Leave in Client ShardMaster. Should never return from here.")
 }
 
 func (ck *Clerk) Move(shard int, gid int) {
@@ -170,9 +166,8 @@ func (ck *Clerk) Move(shard int, gid int) {
 	// Loop across servers until request is fieled. 
 	for {
 		//If leader not known, try each known server. Otherwise, try known leader.
-		for server := range ck.servers {
 
-			selectedServer := ck.findLeaderServer(server)
+			selectedServer := ck.getRandomServer()
 
 			var reply MoveReply
 			ok := ck.sendRPC(selectedServer, "ShardMaster.Move", args, &reply)
@@ -189,23 +184,28 @@ func (ck *Clerk) Move(shard int, gid int) {
 			} else {
 				ck.currentLeader = -1
 			}
-		}
-		//If leader not found after cycling through all servers, probalby within an election.  
-		time.Sleep(100 * time.Millisecond)
 	}
+
+	ck.DError("Return from Move in Client ShardMaster. Should never return from here.")
 }
 
 //********** HELPER FUNCTIONS **********//
 
 // Select server to send request to.
-func (ck *Clerk) findLeaderServer(srv int) (selectedServer int) {
-	if ck.currentLeader == -1 {
-		selectedServer = srv
+func (ck *Clerk) getRandomServer() (testServer int) {
+
+
+	selectedServer := ck.currentLeader
+	if (selectedServer != -1){
+		return selectedServer
 	} else {
-		selectedServer = ck.currentLeader
+		randSource := mrand.NewSource(time.Now().UnixNano())
+		r := mrand.New(randSource)
+		selectedServer = r.Int() % (len(ck.servers))
+
+		return selectedServer
 	}
 
-	return selectedServer
 }
 
 // Send out an RPC (with timeout implemented)
