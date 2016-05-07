@@ -495,7 +495,21 @@ func (kv *ShardKV) sendShardsToGroup(gid int, args AddShardsArgs, futureConfig s
 				kv.Locking(false)
 				
 				var reply AddShardsReply
-				ok := kv.sendRPC(srv, "ShardKV.AddShardKeys", &args, &reply)
+				RPC_returned := make(chan bool)
+				go func() {
+					ok := srv.Call("ShardKV.AddShardKeys", &args, &reply)
+
+					RPC_returned <- ok
+				}()
+
+				//Allows for RPC Timeout
+				ok := false
+				select {
+				case <-time.After(time.Millisecond * 250):
+				  	ok = false
+				case ok = <-RPC_returned:
+				}
+
 
 				kv.mu.Lock()
 				kv.Locking(true)
@@ -1491,26 +1505,6 @@ func (kv *ShardKV) checkIfTransferCommitted(gid_rpc int, configNum int) (committ
 }
 
 
-// Send out an RPC (with timeout implemented)
-func (kv *ShardKV) sendRPC(srv *labrpc.ClientEnd, function string, goArgs interface{}, goReply interface{}) (ok_out bool){
-
-	RPC_returned := make(chan bool)
-	go func() {
-		ok := srv.Call(function, goArgs, goReply)
-
-		RPC_returned <- ok
-	}()
-
-	//Allows for RPC Timeout
-	ok_out = false
-	select {
-	case <-time.After(time.Millisecond * 250):
-	  	ok_out = false
-	case ok_out = <-RPC_returned:
-	}
-
-	return ok_out
-}
 
 func (operation OpType) opToString() string {
 
