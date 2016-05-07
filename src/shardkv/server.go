@@ -33,7 +33,7 @@ type Op struct {
 	Value       		string
 	ClientID    		int64
 	RequestID   		int64
-	Config 				shardmaster.Config
+	Config 				Config_KVServer
 	Shards 				map[string]string
 	LastCommitTable  	map[int64]CommitStruct
 }
@@ -42,6 +42,12 @@ type CommitStruct struct {
 	RequestID   int64
 	ReturnValue string
 	Key 		string
+}
+
+type Config_KVServer struct {
+	Num    int              			// config number
+	Shards [shardmaster.NShards]int     // shard -> gid
+	Groups map[int][]string 			// gid -> servers[]
 }
 
 type RPCReturnInfo struct {
@@ -60,7 +66,7 @@ type TransitionState struct {
 	// Tracks groups from which we needs keys from.
 	GroupsToReceiveFrom		map[int]bool
 	// Transition to this configuration. 
-	FutureConfig 			shardmaster.Config
+	FutureConfig 			Config_KVServer
 }
 
 
@@ -68,7 +74,7 @@ type ShardPackage struct {
 	GidToSendTo 			int
 	TransferKeys 			map[string]string
 	TransferCommitTable 	map[int64]CommitStruct
-	FutureConfig  			shardmaster.Config
+	FutureConfig  			Config_KVServer
 }
 
 type TransferRPCs struct {
@@ -95,7 +101,7 @@ type ShardKV struct {
 	kvMap           		map[string]string
 	lastCommitTable 		map[int64]CommitStruct
 	mck 					*shardmaster.Clerk
-	committedConfig   		shardmaster.Config
+	committedConfig   		Config_KVServer
 	currentLeader 			map[int]int
 	transitionState			TransitionState
 	shardTransferStorage 	[]ShardPackage
@@ -473,7 +479,7 @@ func (kv *ShardKV) AddShardKeys(args *AddShardsArgs, reply *AddShardsReply) {
 }
 
 // Send keys for shard to another group. 
-func (kv *ShardKV) sendShardsToGroup(gid int, args AddShardsArgs, futureConfig shardmaster.Config) {
+func (kv *ShardKV) sendShardsToGroup(gid int, args AddShardsArgs, futureConfig Config_KVServer) {
 
 	kv.DPrintf1("Action: Sending keys to Group %d. args => %+v \n", gid, args)
 
@@ -653,6 +659,8 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 	gob.Register(ShardPackage{})
 	gob.Register(CommitStruct{})
 	gob.Register(shardmaster.Config{})
+	gob.Register(Config_KVServer{})
+	gob.Register(TransitionState{}.FutureConfig)
 
 
 	kv := new(ShardKV)
@@ -701,7 +709,7 @@ func StartServer(servers []*labrpc.ClientEnd, me int, persister *raft.Persister,
 	// Use something like this to talk to the shardmaster:
 	kv.mck = shardmaster.MakeClerk(kv.masters)
 	// Get initial configuration Num. 
-	kv.committedConfig = shardmaster.Config{}
+	kv.committedConfig = Config_KVServer{}
 
 	// Load persisted snapshot (if it exists)
 	// For failure recover, raft reads directly from persister. 
@@ -807,9 +815,14 @@ func (kv *ShardKV) checkConfiguration() {
 			// If there is an updated configuration, submit it through Raft. 
 			if (configTemp.Num == nextConfigNum) {
 
+				localConfig := Config_KVServer{}
+				localConfig.Num =  configTemp.Num
+				localConfig.Shards = configTemp.Shards
+				localConfig.Groups = configTemp.Groups
+
 				thisOp := Op{
 					CommandType: Configuration,
-					Config:      configTemp}
+					Config:      localConfig}
 
 
 				// Unlock before Start (so Start can be in parallel)
@@ -873,7 +886,7 @@ func (kv *ShardKV) processCommits() {
 				kv.DPrintf1("Action: While in-transition state, skipped OP on applyCh. thisCommand => %+v", thisCommand)
 				// Delete operation from RPC_Que (since we will not execute it)
 				delete(kv.waitingForRaft_queue, commitMsg.Index)
-				kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
+				//kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
 				kv.mu.Unlock()
 				kv.Locking(false)
 				continue
@@ -886,7 +899,7 @@ func (kv *ShardKV) processCommits() {
 				if (kv.committedConfig.Shards[thisShard] != kv.gid) {
 					kv.DPrintf1("Action: Rejected operation since key is not part of this GID. thisCommand => %+v", thisCommand)
 					kv.handleOpenRPCs(commitMsg.Index, thisCommand, "", ErrWrongGroup)
-					kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
+					//kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
 					kv.mu.Unlock()
 					kv.Locking(false)
 					continue
@@ -958,7 +971,7 @@ func (kv *ShardKV) processCommits() {
 					kv.DError("Received a configuration change that's more than one index newer than the committedConfig. Should not be possible. \n\n kv.transitionState => %+v, \n \n kv.committedConfig => %+v \n thisCommand => %+v \n", kv.transitionState, kv.committedConfig, thisCommand)
 				}
 
-				kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
+				//kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
 
 			// Execute ShardTransfer Request
 			} else if (thisCommand.CommandType == ShardTransfer) {
@@ -998,7 +1011,7 @@ func (kv *ShardKV) processCommits() {
 					delete(kv.waitingForRaft_queue, commitMsg.Index)
 				}
 
-				kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
+				//kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
 
 			} else if thisCommand.CommandType == TransferSuccess {
 				// Check if this successful transfer has already been executed. 
@@ -1017,7 +1030,7 @@ func (kv *ShardKV) processCommits() {
 
 				}
 
-				kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
+				//kv.manageSnapshots(commitMsg.Index, commitMsg.Term)
 
 			} else if thisCommand.CommandType == Get {
 
@@ -1159,9 +1172,10 @@ func (kv *ShardKV) readPersistSnapshot(data []byte) {
 	 r := bytes.NewBuffer(data)
 	 d := gob.NewDecoder(r)
 
-	 // Todo
-	 kv.committedConfig = shardmaster.Config{}
+	 // Error Detection: Used to detect improper GOB translation
 	 kv.transitionState = TransitionState{}
+	 kv.transitionState.FutureConfig.Num = -10
+
 
 	 // Discard lastIncludedIndex and lastIncludedTerm
 	 var lastIncludedIndex int
@@ -1195,12 +1209,12 @@ func (kv *ShardKV) readPersistSnapshot(data []byte) {
 
 	// Error Checking
 	if (kv.transitionState.FutureConfig.Num == kv.committedConfig.Num && kv.transitionState.InTransition) {
-		kv.DError("Action (read): In transition between configurations while committedConfig is already updated to the new one. ")
+		kv.DError("Error: Action (read): In transition between configurations while committedConfig is already updated to the new one. ")
 	}
 
 	// Error Checking
 	if (len(kv.transitionState.GroupsToReceiveFrom) > 0 && !kv.transitionState.InTransition) {
-		kv.DError("Action (read): Indicat that not in transition when still have Shards to Receive. ")
+		kv.DError("Error: Action (read): Indicat that not in transition when still have Shards to Receive. ")
 	}
 
 
@@ -1593,8 +1607,8 @@ func (kv *ShardKV) DError(format string, a ...interface{}) (n int, err error) {
 
 func (kv *ShardKV) Locking(locked bool) {
 	if (locked) {
-		log.Printf("GID%d, KVServer%d: Now Acquiring Lock \n", kv.gid, kv.me)
+		//log.Printf("GID%d, KVServer%d: Now Acquiring Lock \n", kv.gid, kv.me)
 	} else if (!locked) {
-		log.Printf("GID%d, KVServer%d: Now Releasing Lock \n", kv.gid, kv.me)
+		//log.Printf("GID%d, KVServer%d: Now Releasing Lock \n", kv.gid, kv.me)
 	}
 }
