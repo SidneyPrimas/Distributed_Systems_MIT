@@ -738,7 +738,19 @@ func (rf *Raft) sendRequestVote(server int, args RequestVoteArgs, reply *Request
 	// Unlock for sending RPC
 	rf.mu.Unlock()
 
-	ok := rf.sendRPC(server, "Raft.RequestVote", args, reply)
+	RPC_returned := make(chan bool)
+	go func() {
+		ok := rf.peers[server].Call("Raft.RequestVote", args, reply)
+		RPC_returned <- ok
+	}()
+
+	//Allows for RPC Timeout
+	ok := false
+	select {
+	case <-time.After(time.Millisecond * 100):
+	  	ok = false
+	case ok = <-RPC_returned:
+	}
 	
 	 // Lock before receiving the RPC
 	rf.mu.Lock()
@@ -874,7 +886,19 @@ func (rf *Raft) sendAppendEntries(server int, args AppendEntriesArgs, reply *App
 	// Unlock for sending RPC
 	rf.mu.Unlock()
 
-	ok := rf.sendRPC(server, "Raft.AppendEntries", args, reply)
+	RPC_returned := make(chan bool)
+	go func() {
+		ok := rf.peers[server].Call("Raft.AppendEntries", args, reply)
+		RPC_returned <- ok
+	}()
+
+	//Allows for RPC Timeout
+	ok := false
+	select {
+	case <-time.After(time.Millisecond * 100):
+	  	ok = false
+	case ok = <-RPC_returned:
+	}
 	
 	 // Lock before receiving the RPC
 	rf.mu.Lock()
@@ -1042,7 +1066,21 @@ func (rf *Raft) SendSnapshot(server int, args InstallSnapshotArgs, reply *Instal
 	// Unlock for sending RPC
 	rf.mu.Unlock()
 
-	ok := rf.sendRPC(server, "Raft.HandleSnapshot", args, reply)
+	RPC_returned := make(chan bool)
+	go func() {
+		ok := rf.peers[server].Call("Raft.HandleSnapshot", args, reply)
+		RPC_returned <- ok
+	}()
+
+	//Allows for RPC Timeout
+	ok := false
+	select {
+	case <-time.After(time.Millisecond * 100):
+	  	ok = false
+	case ok = <-RPC_returned:
+	}
+
+
 
 	// Lock after sending RPC
 	rf.mu.Lock()
@@ -1486,26 +1524,6 @@ func (rf *Raft) getConsistencyTerm(i int) int {
 	} else {
 		return rf.getLogEntry(i).Term
 	}
-}
-
-// Send out an RPC (with timeout implemented)
-func (rf *Raft) sendRPC(server int, function string, goArgs interface{}, goReply interface{}) (ok_out bool){
-
-	RPC_returned := make(chan bool)
-	go func() {
-		ok := rf.peers[server].Call(function, goArgs, goReply)
-		RPC_returned <- ok
-	}()
-
-	//Allows for RPC Timeout
-	ok_out = false
-	select {
-	case <-time.After(time.Millisecond * 100):
-	  	ok_out = false
-	case ok_out = <-RPC_returned:
-	}
-
-	return ok_out
 }
 
 
