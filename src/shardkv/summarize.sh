@@ -12,6 +12,10 @@ path_to_folder=$1
 echo "************* FAIL *************"
 fail=$(grep -Rn --color -L 'PASS' ./${path_to_folder}/)
 echo "$fail"
+fail=$(grep -Rn --color 'FAIL' ./${path_to_folder}/)
+echo "$fail"
+fail=$(grep -Rn --color 'exit' ./${path_to_folder}/)
+echo "$fail"
 
 echo "************* PASS *************"
 pass=$(grep -Rn --color 'PASS' ./${path_to_folder}/)

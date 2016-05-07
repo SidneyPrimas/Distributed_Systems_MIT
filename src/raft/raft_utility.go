@@ -330,7 +330,7 @@ func (rf *Raft) dPrintf_now(format string, a ...interface{}) (n int, err error) 
 }
 
 func (rf *Raft) real_debug(format string, a ...interface{}) (n int, err error) {
-	if rf.debug >= 0 {
+	if rf.debug >= 1 {
 		custom_input := make([]interface{},1)
 		custom_input[0] = rf.me
 		out_var := append(custom_input , a...)

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"labrpc"
 	"time"
-	"shardmaster"
 )
 
 const debug_break = "---------------------------------------------------------------------------------------"
@@ -65,8 +64,8 @@ func (kv *ShardKV) readPersistSnapshot(data []byte) {
 	 r := bytes.NewBuffer(data)
 	 d := gob.NewDecoder(r)
 
-	 // Todo
-	 kv.committedConfig = shardmaster.Config{}
+	 // GOB Issues: Without resetting my transitionState before updating it through GOB, it receives arbitrary values at times. 
+	 // ToDo: Investigate further (and ask at office)
 	 kv.transitionState = TransitionState{}
 
 	 // Discard lastIncludedIndex and lastIncludedTerm
@@ -495,7 +494,7 @@ func (kv *ShardKV) DPrintf1(format string, a ...interface{}) (n int, err error) 
 }
 
 func (kv *ShardKV) DPrintf_now(format string, a ...interface{}) (n int, err error) {
-	if kv.debug >= 0 {
+	if kv.debug >= 1 {
 		custom_input := make([]interface{},2)
 		custom_input[0] = kv.gid
 		custom_input[1] = kv.me
@@ -519,8 +518,8 @@ func (kv *ShardKV) DError(format string, a ...interface{}) (n int, err error) {
 
 func (kv *ShardKV) Locking(locked bool) {
 	if (locked) {
-		log.Printf("GID%d, KVServer%d: Now Acquiring Lock \n", kv.gid, kv.me)
+		//log.Printf("GID%d, KVServer%d: Now Acquiring Lock \n", kv.gid, kv.me)
 	} else if (!locked) {
-		log.Printf("GID%d, KVServer%d: Now Releasing Lock \n", kv.gid, kv.me)
+		//log.Printf("GID%d, KVServer%d: Now Releasing Lock \n", kv.gid, kv.me)
 	}
 }

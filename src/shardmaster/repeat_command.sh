@@ -2,8 +2,8 @@
 
 #Note: > means that errors (or log print statments) will be printed to the terminal.
 #Note: &> means that errors (or log print statments) will be printed to the txt file, and not the terminal.
-mkdir ./Custom_Test
-for i in {1..10}
+mkdir -p Custom_test
+for i in {1..30}
 do
-  go test -run=TestMulti &> ./Custom_Test/TestMulti${i}.txt
+  go test -test.v  2>&1 | tee -a ./Custom_Test/TestCheckSummary${i}.log
 done

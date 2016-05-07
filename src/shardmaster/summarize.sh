@@ -16,6 +16,8 @@ echo "$pass"
 echo "************* FAIL *************"
 fail=$(grep -Rn --color -L 'PASS' ./${path_to_folder}/)
 echo "$fail"
+fail=$(grep -Rn --color 'FAIL' ./${path_to_folder}/)
+echo "$fail"
 
 echo "************* Summary *************"
 total_fail=$(echo "$fail" | grep -c --color 'FAIL')
