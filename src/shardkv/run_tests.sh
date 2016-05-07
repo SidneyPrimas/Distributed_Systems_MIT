@@ -9,7 +9,7 @@ mkdir -p Test
 for test in "${TESTS[@]}"
 do
 	mkdir -p Test/${test}
-  	for i in {131..140}
+  	for i in {121..130}
   	do
     go test -run=${test}  2>&1 | tee ./Test/${test}/${i}.log
     	#go test -run=${test} &> ./Test/${test}/${i}.log

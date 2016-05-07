@@ -98,20 +98,7 @@ func (ck *Clerk) Get(key string) string {
 				srv := ck.make_end(servers[selectedServer])
 				
 				var reply GetReply
-				RPC_returned := make(chan bool)
-				go func() {
-					ok := srv.Call("ShardKV.Get", &args, &reply)
-
-					RPC_returned <- ok
-				}()
-
-				//Allows for RPC Timeout
-				ok := false
-				select {
-				case <-time.After(time.Millisecond * 250):
-				  	ok = false
-				case ok = <-RPC_returned:
-				}
+				ok := ck.sendRPC(srv, "ShardKV.Get", &args, &reply)
 
 				// Wrong Leader (reset stored leader)
 				if !ok || (ok && reply.WrongLeader == true) {
@@ -176,20 +163,7 @@ func (ck *Clerk) PutAppend(key string, value string, op string) {
 				srv := ck.make_end(servers[selectedServer])
 				
 				var reply PutAppendReply
-				RPC_returned := make(chan bool)
-				go func() {
-					ok := srv.Call("ShardKV.PutAppend", &args, &reply)
-
-					RPC_returned <- ok
-				}()
-
-				//Allows for RPC Timeout
-				ok := false
-				select {
-				case <-time.After(time.Millisecond * 250):
-				  	ok = false
-				case ok = <-RPC_returned:
-				}
+				ok := ck.sendRPC(srv, "ShardKV.PutAppend", &args, &reply)
 
 				// Wrong Leader (reset stored leader)
 				if !ok || (ok && reply.WrongLeader == true) {
@@ -251,6 +225,26 @@ func (ck *Clerk) getRandomServer(gid int) (testServer int) {
 
 }
 
+// Send out an RPC (with timeout implemented)
+func (ck *Clerk) sendRPC(srv *labrpc.ClientEnd, function string, goArgs interface{}, goReply interface{}) (ok_out bool){
+
+	RPC_returned := make(chan bool)
+	go func() {
+		ok := srv.Call(function, goArgs, goReply)
+
+		RPC_returned <- ok
+	}()
+
+	//Allows for RPC Timeout
+	ok_out = false
+	select {
+	case <-time.After(time.Millisecond * 300):
+	  	ok_out = false
+	case ok_out = <-RPC_returned:
+	}
+
+	return ok_out
+}
 
 //********** UTILITY FUNCTIONS **********//
 
