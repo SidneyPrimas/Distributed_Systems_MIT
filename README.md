@@ -4,6 +4,8 @@ Lab 1: MapReduce
 
 Lab 2: Raft-based Consensus System 
 
+  Link: https://raft.github.io/raft.pdf
+
 Lab 3: Fault Tolerant Key/Value Service
 
 Lab 4: Sharded Key/Value Service
