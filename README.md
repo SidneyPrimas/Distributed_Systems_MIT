@@ -20,8 +20,12 @@ I implemented the entire Raft service as described in the original [Raft paper](
 * Persisting certain states on the disk
 * etc
 
+##### Including Snapshotting Functionality
+I updated Raft to include snapshotting. In real world implementations, memory constraints limit the size of the Raft log. Snapshotting is a technique that captures the current state of the key-value service, and thus allows for Raft to delete any log entries prior to the snapshot. Also, using snapshots, we can bring failed and partitioned nodes back up-to-date more efficiently. 
+
 Find my Raft code at [src/raft](https://github.com/SidneyPrimas/Distributed_Systems_MIT/tree/master/src/raft).
-Find lab directions [here](http://nil.csail.mit.edu/6.824/2016/labs/lab-raft.html).
+Find raft lab directions [here](http://nil.csail.mit.edu/6.824/2016/labs/lab-raft.html).
+Find snapshotting lab directions [here](http://nil.csail.mit.edu/6.824/2016/labs/lab-kvraft.html).
 
 ### Fault-Tolerant Key-Value Storage Service
 We built a key-value storage service that replicates its state across multiple servers. We used our Raft library to maintain a consistent state across servers. In this implementation, we guarantee sequential consistency. This means that no matter which server the client interacts with, a get (read) command should observe the most recent put/append (write) command. 
@@ -33,11 +37,6 @@ The service is split into two functional parts:
 
 Find my code at [src/kvraft](https://github.com/SidneyPrimas/Distributed_Systems_MIT/tree/master/src/kvraft).
 Find lab directions [here](http://nil.csail.mit.edu/6.824/2016/labs/lab-kvraft.html).
-
-##### Added Snapshotting Functionality
-I updated Raft to include snapshotting. In real world implementations, memory constraints limit the size of the Raft log. Snapshotting is a technique that captures the current state of the key-value service, and thus allows for Raft to delete any log entries prior to the snapshot. Also, using snapshots, we can bring failed and partitioned nodes back up-to-date more efficiently. 
-
-Find my snapshotting code at [src/raft](https://github.com/SidneyPrimas/Distributed_Systems_MIT/tree/master/src/raft).
 
 ### Sharded Key-Value Service 
 I expanded my key-value service to shard the keys across multiple replica groups, and built a service to manage the replica groups configuration while the servers are live. Specifically, the sharded key-value service allows for:

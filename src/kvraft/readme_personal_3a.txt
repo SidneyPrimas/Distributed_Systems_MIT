@@ -1,4 +1,4 @@
-******************* Lab Implementation Notes l*******************
+******************* Lab Implementation Notes 3A *******************
 
 Question: 
 + Is there any reason I need to lock my Client? I don't think so. 

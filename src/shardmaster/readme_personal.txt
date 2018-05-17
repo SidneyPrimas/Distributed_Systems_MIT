@@ -12,8 +12,6 @@ Holistic To Do:
 + Snapshotting during transition: Currently, we don't take any snapshots during the transition. The reason for this is that the snapshot assumes that the operation in question has been completed, and we no longer need to log for that operation. However, in the transition, that's not the case. Thus, if we decide we need to snapshot the transition, we also need to snapshot 1) the committedConfig and 2) the transitionState. The transitionState is especially important because it captures the changes to the state of the system during the transition. 
 + Think about: 1) Should I overwrite keys (without thinking) when I transfer shards and 2) should I delete keys after transferring shards. Also, how do I best error check this? 
 
-Quick Notes: 
-
 
 High Priority To Do: 
 + Important: Handle the possible deadlock when servers need to 1) receive a shard from a server and 2) send a shard to another server. 
