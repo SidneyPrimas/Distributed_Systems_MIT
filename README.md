@@ -20,6 +20,8 @@ I implemented the entire Raft service as described in the original [Raft paper](
 * Persisting certain states on the disk
 * etc
 
+Find the Raft code at [src/raft](https://github.com/SidneyPrimas/Distributed_Systems_MIT/tree/master/src/raft).
+
 ### Fault-Tolerant Key-Value Storage Service
 We built a key-value storage service that replicates its state across multiple servers. We used our Raft library to maintain a consistent state across servers. In this implementation, we guarantee sequential consistency. This means that no matter which server the client interacts with, a get (read) command should observe the most recent put/append (write) command. 
 
@@ -28,10 +30,14 @@ The service is split into two functional parts:
 * **Client-Side API**: The client-side API allows clients to Put, Append and Get keys/values from the distributed storage service. We use RPCs (remote procedure calls) to communicate between client and server.  
 * **Server-Side Infrastructure**:  On the server side, we built the infrastructure to triage incoming client requests, update the key-value store once Raft reaches consensus, and respond back to the correct client. This includes helping clients find the leader node, rejecting duplicate requests from clients (either already committed or just staged in the log), handling requests asynchronously from multiple clients, etc. 
 
-#### Snapshot
+Find this code at [src/kvraft](https://github.com/SidneyPrimas/Distributed_Systems_MIT/tree/master/src/kvraft).
+
+##### Added Snapshotting Functionality
 I updated Raft to include snapshotting. In real world implementations, memory constraints limit the size of the Raft log. Snapshotting is a technique that captures the current state of the key-value service, and thus allows for Raft to delete any log entries prior to the snapshot. Also, using snapshots, we can bring failed and partitioned nodes back up-to-date more efficiently. 
 
-### Shared Key-Value Service 
+Find the snapshotting code at [src/raft](https://github.com/SidneyPrimas/Distributed_Systems_MIT/tree/master/src/raft).
+
+### Sharded Key-Value Service 
 I expanded my key-value service to shard the keys across multiple replica groups, and built a service to manage the replica groups configuration while the servers are live. Specifically, the sharded key-value service allows for:
 + Load balancing requests across replica groups by moving shards between them. 
 + Adding and removing replica groups while servers are live (and automatically rebalancing the shards acrss replica groups)
@@ -39,5 +45,23 @@ I expanded my key-value service to shard the keys across multiple replica groups
 The goal of sharding is to increase system through-put. Since each replica group handles only a subset of the keys, the entire system can handle more gets/puts simultaneously. 
 
 To accomplish this, we needed to: 
-* **Build a Shard Configuration Service (ShardMaster)**: The ShardMaster is a separate replica group tasked with maintaining fault-tolerant records on the configuration of the system. Specifically, the ShardMaster keeps track of the mapping from shards to replica groups. 
-* **Update the Key-Value Storage servers**: We needed to update the key-value storage servers to 1) redirect requests to the correct replica group, 2) monitor the ShardMaster for configuration changes, 3) migrate shards using RPCs from one replica group to another during load balancing, etc. 
+* **Build a Shard Configuration Service (ShardMaster)**: The ShardMaster is a separate replica group tasked with maintaining fault-tolerant records on the configuration of the system. Specifically, the ShardMaster keeps track of the mapping from shards to replica groups. Find code at [src/shardmaster](https://github.com/SidneyPrimas/Distributed_Systems_MIT/tree/master/src/shardmaster).
+* **Update the Key-Value Storage servers**: We needed to update the key-value storage servers to 1) redirect requests to the correct replica group, 2) monitor the ShardMaster for configuration changes, 3) migrate shards using RPCs from one replica group to another during load balancing, etc. Find code at [src/shardkv](https://github.com/SidneyPrimas/Distributed_Systems_MIT/tree/master/src/shardkv).
+
+## Setup and Testing 
+First, install [Go](https://golang.org/) (I used v1.5). Then, get setup with the following commands:
+```
+$ git clone https://github.com/SidneyPrimas/Distributed_Systems_MIT.git
+$ cd Distributed_Systems_MIT
+$ export GOPATH=$(pwd)
+$ cd src/shardkv # for additional testing, shardkv can be replaced with other subsystem folders
+$ go test -test.v
+```
+
+For the most end-to-end tests, navigate to src/shardkv. To test different subsystems, navigate to the directory of the subsystem. Possible options include: 
+```
+$ cd src/raft
+$ cd src/kvraft
+$ cd src/shardmaster
+$ cd src/shardkv
+```
