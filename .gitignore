@@ -2,4 +2,10 @@ pkg/
 api.key
 *-handin.tar.gz
 .DS_Store
-
+/src/diskv
+/src/kvpaxos
+/src/main
+/src/mapreduce
+/src/paxos*
+/src/pbservice
+/src/viewservice
