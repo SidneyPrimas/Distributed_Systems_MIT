@@ -7,11 +7,9 @@ The project can be split into three subsystems:
 3. **Sharded Key-Value Storage**, I expanded my key-value service to shard the keys across multiple replica groups, and allow for managing their configuration while the servers are live. 
 
 To find out more about each subystem, view the readmes for each subystems: 
-```
 1. [Raft](https://github.com/SidneyPrimas/Distributed_Systems_MIT/tree/master/src/raft): Code found in src/raft.
 2. [Fault-Tolerant Key-Value Storage](https://github.com/SidneyPrimas/Distributed_Systems_MIT/tree/master/src/kvraft): Code found in src/kvraft
 3. [Sharded Key-Value Storage](https://github.com/SidneyPrimas/Distributed_Systems_MIT/tree/master/src/shardkv): Code found in src/shardmaster and src/shardkv.
-```
 
 
 To validate our implementations, we were provided with tests that simulated server failures, partitioned networks, unreliable networks, and many other situations + edge cases. Since each of the above services are inter-dependent, a bug in any service can cause failures in other services. That means I spent most of my time debugging by pouring over 100,000+ line debug logs, looking at deadlocks, livelocks, inconsistent logs, etc. 
