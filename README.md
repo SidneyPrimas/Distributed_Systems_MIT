@@ -10,6 +10,14 @@ To validate our implementations, we were provided with tests that simulated serv
 
 I built the system as part of MIT’s 2016 Distributed System course ([6.824](http://nil.csail.mit.edu/6.824/2016/index.html)). The course is (in)famous for being one of (if not the most) demanding CS course at MIT. 
 
+My code is in the below directories. Other directories include supporting libraries, and obsolete skeleton code from past projects.  
+```
+src/raft
+src/kvraft
+src/shardmaster
+src/shardkv
+```
+
 ### Raft
 Our goal is to build a fault-tolerant system. We accomplished this by replicating a server’s state across multiple servers (called replicated state machines). We then use Raft to keep the replicated servers in-synch. To keep the state machine’s in-synch, each state machine needs to execute the same operations in the same order. Raft is a consensus protocol that maintains a log of operations that will be applied to each server (state machine) in a defined order. Thus, Raft ensures that each state machine processes the same operations, producing the same results and thus arriving at the same state. In a successful implementation, it will appear to clients that they interact with a single, reliable state machine.  
 
