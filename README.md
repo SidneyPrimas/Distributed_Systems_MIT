@@ -10,7 +10,7 @@ To validate our implementations, we were provided with tests that simulated serv
 
 I built the system as part of MIT’s 2016 Distributed System course ([6.824](http://nil.csail.mit.edu/6.824/2016/index.html)). The course is (in)famous for being one of (if not the most) demanding CS course at MIT. 
 
-My code is in the below directories. Other directories include supporting libraries, and obsolete skeleton code from past projects.  
+My code is in the below directories. Other directories include supporting libraries. 
 ```
 src/raft
 src/kvraft
