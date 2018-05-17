@@ -62,7 +62,7 @@ Find lab directions [here](http://nil.csail.mit.edu/6.824/2016/labs/lab-shard.ht
 ## Setup and Testing 
 First, install [Go](https://golang.org/) (I used v1.5). Then, get setup with the following commands:
 ```
-$ git clone https://github.com/SidneyPrimas/Distributed_Systems_MIT.git
+$ git clone https://github.com/SidneyPrimas/Sharded_Key-Value_System.git
 $ cd Distributed_Systems_MIT
 $ export GOPATH=$(pwd)
 $ cd src/shardkv # for additional testing, shardkv can be replaced with other subsystem folders
