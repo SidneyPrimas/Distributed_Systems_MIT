@@ -2,9 +2,9 @@
 
 Over the course of 3 months, I built a fault-tolerant, sharded key-value system almost completely from scratch. 
 The project can be split into the below three subsystems. Click on the link to navigate to the readme of each subsystem. 
-1. [**Raft:**]() I built a consensus service based on the [Raft protocol](https://raft.github.io/raft.pdf) that ensures distributed servers agree on a single result.  
-2. [**Fault-Tolerant Key-Value Storage:**](https://github.com/SidneyPrimas/Distributed_Systems_MIT/tree/master/src/kvraft) I used my Raft library to build a key-value service replicated across multiple servers to ensure fault-tolerance. 
-3. [**Sharded Key-Value Storage:**](https://github.com/SidneyPrimas/Distributed_Systems_MIT/tree/master/src/shardkv) I expanded my key-value service to shard the keys across multiple replica groups, and allow for managing their configuration while the servers are live. 
+1. [**Raft:**](https://github.com/SidneyPrimas/Sharded_Key-Value_System/tree/master/src/raft) I built a consensus service based on the [Raft protocol](https://raft.github.io/raft.pdf) that ensures distributed servers agree on a single result.  
+2. [**Fault-Tolerant Key-Value Storage:**](https://github.com/SidneyPrimas/Sharded_Key-Value_System/tree/master/src/kvraft) I used my Raft library to build a key-value service replicated across multiple servers to ensure fault-tolerance. 
+3. [**Sharded Key-Value Storage:**](https://github.com/SidneyPrimas/Sharded_Key-Value_System/tree/master/src/shardkv) I expanded my key-value service to shard the keys across multiple replica groups, and allow for managing their configuration while the servers are live. 
 
 To validate our implementations, we were provided with tests that simulated server failures, partitioned networks, unreliable networks, and many other situations + edge cases. Since each of the above services are inter-dependent, a bug in any service can cause failures in other services. That means I spent most of my time debugging by pouring over 100,000+ line debug logs, looking at deadlocks, livelocks, inconsistent logs, etc. 
 
