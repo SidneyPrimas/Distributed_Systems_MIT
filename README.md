@@ -8,7 +8,9 @@ The project can be split into the below three subsystems. Click on the link to n
 
 To validate our implementations, we were provided with tests that simulated server failures, partitioned networks, unreliable networks, and many other situations + edge cases. Since each of the above services are inter-dependent, a bug in any service can cause failures in other services. That means I spent most of my time debugging by pouring over 100,000+ line debug logs, looking at deadlocks, livelocks, inconsistent logs, etc. 
 
-I built the system as part of MIT’s 2016 Distributed System course ([6.824](http://nil.csail.mit.edu/6.824/2016/index.html)). The course is (in)famous for being one of (if not the most) demanding CS course at MIT. 
+I built the system as part of MIT’s 2016 Distributed System course ([6.824](http://nil.csail.mit.edu/6.824/2016/index.html)). The course is (in)famous for being one of (if not the most) demanding CS course at MIT.  
+
+A huge thank you to our incredible professors [Robert Morris](https://en.wikipedia.org/wiki/Robert_Tappan_Morris) and [Frans Kaashoek](https://en.wikipedia.org/wiki/Frans_Kaashoek). They represent everything that is good about academia. 
 
 ## Setup and Testing 
 First, install [Go](https://golang.org/) (I used v1.5). Then, get setup with the following commands:
